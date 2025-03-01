@@ -74,10 +74,10 @@ def generate_coords(file_path):
         save_object(detection_result.pose_world_landmarks, os.path.join(destination_folder, f"{file_name}.pkl"))
 
     annotated_image = draw_landmarks_on_image(img, detection_result)
-    # cv2.imshow(f"{file_name}",cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
+    cv2.imshow(f"{file_name}",cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
     cv2.imwrite(os.path.join(debug_folder, f"{file_name}.png"), annotated_image)
-    # cv2.waitKey(1)
-    # cv2.destroyAllWindows()
+    cv2.waitKey(1)
+    cv2.destroyAllWindows()
 
 
     
