@@ -61,9 +61,9 @@ def generate_coords(file_path):
     options = vision.PoseLandmarkerOptions(
         base_options=base_options,
         output_segmentation_masks=True,
-        min_pose_detection_confidence=0.25,
-        min_pose_presence_confidence=0.25,
-        min_tracking_confidence=0.25
+        min_pose_detection_confidence=0.5,
+        min_pose_presence_confidence=0.5,
+        min_tracking_confidence=0.5
         )
     detector = vision.PoseLandmarker.create_from_options(options)
 
