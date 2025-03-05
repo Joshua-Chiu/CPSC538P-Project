@@ -9,15 +9,22 @@ import torch.optim as optim
 # 1️⃣ Load and Preprocess Triplet Data
 # ==============================
 
-# Load the pose data from the pickle file
-def load_pose(file_path):
-    with open(file_path, 'rb') as f:
-        pose = pickle.load(f)
-
-    # Assuming pose is a list of Landmark objects and each Landmark has x, y, z attributes
-    keypoints = np.array([[kp.x, kp.y, kp.z] for kp in pose], dtype=np.float32)  # Extract x, y, z coordinates
+# Check if the data is already in the form of Landmark objects (not file paths)
+def load_pose(pose_data):
+    """
+    Assumes the `pose_data` is already a list of Landmark objects or a numpy array.
+    """
+    # If pose_data is a list of Landmark objects (or something that can be turned into an array)
+    if isinstance(pose_data, list):
+        # Convert list of Landmark objects to numpy array (assuming they have x, y, z attributes)
+        pose = np.array([[kp.x, kp.y, kp.z] for kp in pose_data], dtype=np.float32)
+    elif isinstance(pose_data, np.ndarray):
+        # If it's already a numpy array, just use it
+        pose = pose_data
+    else:
+        raise ValueError("Unknown pose data type")
     
-    return keypoints
+    return pose
 
 # Load triplets from the pickle file
 with open("triplets.pkl", "rb") as f:
