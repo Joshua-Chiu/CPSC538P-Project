@@ -9,21 +9,22 @@ import torch.optim as optim
 # 1️⃣ Load and Preprocess Triplet Data
 # ==============================
 
-# Check if the data is already in the form of Landmark objects (not file paths)
+# Ensure the pose data is in a numeric format
 def load_pose(pose_data):
     """
-    Assumes the `pose_data` is already a list of Landmark objects or a numpy array.
+    This function assumes that `pose_data` is either:
+    - A list of Landmark objects (convert to numpy array),
+    - Or already a numpy array.
     """
-    # If pose_data is a list of Landmark objects (or something that can be turned into an array)
     if isinstance(pose_data, list):
-        # Convert list of Landmark objects to numpy array (assuming they have x, y, z attributes)
+        # Convert list of Landmark objects (with attributes x, y, z) to a numpy array
         pose = np.array([[kp.x, kp.y, kp.z] for kp in pose_data], dtype=np.float32)
     elif isinstance(pose_data, np.ndarray):
         # If it's already a numpy array, just use it
-        pose = pose_data
+        pose = pose_data.astype(np.float32)
     else:
         raise ValueError("Unknown pose data type")
-    
+
     return pose
 
 # Load triplets from the pickle file
@@ -37,10 +38,10 @@ if not triplets or not isinstance(triplets, list):
 # Convert triplets into a NumPy array for easier manipulation
 triplets = np.array(triplets, dtype=object)  # dtype=object to avoid shape issues
 
-# Detect available device (CPU or GPU)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# ==============================
+# 2️⃣ Custom Dataset Class
+# ==============================
 
-# Custom Dataset Class for PyTorch
 class TripletDataset(Dataset):
     """
     Custom Dataset class for loading triplet data in PyTorch DataLoader.
@@ -60,10 +61,10 @@ class TripletDataset(Dataset):
         positive = load_pose(positive)  # Load pose for positive
         negative = load_pose(negative)  # Load pose for negative
 
-        # Ensure NumPy array conversion with proper dtype
-        anchor = torch.tensor(anchor, dtype=torch.float32, device=device)
-        positive = torch.tensor(positive, dtype=torch.float32, device=device)
-        negative = torch.tensor(negative, dtype=torch.float32, device=device)
+        # Convert to PyTorch tensors, ensuring they are numeric arrays
+        anchor = torch.tensor(anchor, dtype=torch.float32)
+        positive = torch.tensor(positive, dtype=torch.float32)
+        negative = torch.tensor(negative, dtype=torch.float32)
 
         return anchor, positive, negative
 
@@ -71,7 +72,7 @@ class TripletDataset(Dataset):
 train_loader = DataLoader(TripletDataset(triplets), batch_size=32, shuffle=True)
 
 # ==============================
-# 2️⃣ Define the Neural Network
+# 3️⃣ Define the Neural Network
 # ==============================
 
 class PoseEmbeddingNet(nn.Module):
@@ -93,10 +94,11 @@ class PoseEmbeddingNet(nn.Module):
         return self.fc(x)
 
 # Instantiate the model and move it to the detected device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = PoseEmbeddingNet().to(device)
 
 # ==============================
-# 3️⃣ Define Loss Function & Optimizer
+# 4️⃣ Define Loss Function & Optimizer
 # ==============================
 
 # Use PyTorch's built-in Triplet Margin Loss function
@@ -106,7 +108,7 @@ triplet_loss = nn.TripletMarginLoss(margin=1.0)  # Margin controls how far apart
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # ==============================
-# 4️⃣ Train the Model
+# 5️⃣ Train the Model
 # ==============================
 
 # Number of training epochs (adjust as needed)
@@ -134,7 +136,7 @@ for epoch in range(num_epochs):
     print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss:.4f}")
 
 # ==============================
-# 5️⃣ Save and Evaluate the Model
+# 6️⃣ Save and Evaluate the Model
 # ==============================
 
 # Save the trained model weights to a file
