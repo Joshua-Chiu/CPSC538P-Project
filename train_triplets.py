@@ -10,9 +10,13 @@ import torch.optim as optim
 # ==============================
 
 # Load the pose data from the pickle file
-def load_pose(pose_data):
-    # Assuming pose_data is a NumPy array or list of keypoints
-    keypoints = np.array(pose_data, dtype=np.float32)
+def load_pose(file_path):
+    with open(file_path, 'rb') as f:
+        pose = pickle.load(f)
+
+    # Assuming pose is a list of Landmark objects and each Landmark has x, y, z attributes
+    keypoints = np.array([[kp.x, kp.y, kp.z] for kp in pose], dtype=np.float32)  # Extract x, y, z coordinates
+    
     return keypoints
 
 # Load triplets from the pickle file
@@ -44,12 +48,12 @@ class TripletDataset(Dataset):
     def __getitem__(self, index):
         anchor, positive, negative = self.triplets[index]
 
-        # Load and process the poses directly
-        anchor = load_pose(anchor)  # Process anchor keypoints
-        positive = load_pose(positive)  # Process positive keypoints
-        negative = load_pose(negative)  # Process negative keypoints
+        # Load and process the poses
+        anchor = load_pose(anchor)  # Load pose for anchor
+        positive = load_pose(positive)  # Load pose for positive
+        negative = load_pose(negative)  # Load pose for negative
 
-        # Ensure NumPy array conversion with proper dtype and move to device
+        # Ensure NumPy array conversion with proper dtype
         anchor = torch.tensor(anchor, dtype=torch.float32, device=device)
         positive = torch.tensor(positive, dtype=torch.float32, device=device)
         negative = torch.tensor(negative, dtype=torch.float32, device=device)
