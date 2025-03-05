@@ -63,7 +63,7 @@ def generate_triplets(dataset_path, output_file="triplets.pkl"):
     return np.array(triplets)
 
 # Define dataset path (adjust this based on your file structure)
-dataset_path = "entireid_test/test_pose/"  # Adjust this path if necessary
+dataset_path = "entireid/bounding_box_test_pose"  # Adjust this path if necessary
 
 # Generate triplets and save to file
 triplets = generate_triplets(dataset_path, "triplets.pkl")
