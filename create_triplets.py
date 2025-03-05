@@ -4,10 +4,19 @@ import pickle
 import numpy as np
 from collections import defaultdict
 
+# Assuming the Landmark object has attributes 'x', 'y', 'z' for pose data
+def extract_pose_from_landmarks(landmarks):
+    """
+    Converts a list of Landmark objects to a numpy array.
+    Each Landmark object has attributes x, y, z.
+    """
+    return np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks], dtype=np.float32)
+
 # Load the pose data from the pickle file
 def load_pose(file_path):
     with open(file_path, 'rb') as f:
-        return pickle.load(f)
+        pose_data = pickle.load(f)
+    return extract_pose_from_landmarks(pose_data)  # Convert to numpy array of floats
 
 # Generate triplets: anchor, positive, negative
 def generate_triplets(dataset_path, output_file="triplets.pkl"):
@@ -47,7 +56,7 @@ def generate_triplets(dataset_path, output_file="triplets.pkl"):
         negative_person_id = random.choice([pid for pid in person_ids if pid != person_id])
         negative_path = random.choice(person_images[negative_person_id])  # Random negative image
         
-        # Load the poses from the pickle files
+        # Load the poses from the pickle files (now converted to numpy arrays)
         anchor = load_pose(anchor_path)
         positive = load_pose(positive_path)
         negative = load_pose(negative_path)
