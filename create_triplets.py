@@ -60,7 +60,9 @@ def generate_triplets(dataset_path, output_file="triplets.pkl"):
         pickle.dump(triplets, f)
     
     print(f"✅ Saved {len(triplets)} triplets to {output_file}")
-    return np.array(triplets)
+    
+    # Step 4: Convert the list of triplets into a NumPy array and return it
+    return np.array([np.stack([anchor, positive, negative]) for anchor, positive, negative in triplets])
 
 # Define dataset path (adjust this based on your file structure)
 dataset_path = "entireid/bounding_box_test_pose"  # Adjust this path if necessary
