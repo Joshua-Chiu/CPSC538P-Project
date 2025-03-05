@@ -4,27 +4,10 @@ import pickle
 import numpy as np
 from collections import defaultdict
 
-# Assuming the Landmark object has attributes 'x', 'y', 'z' for pose data
-def extract_pose_from_landmarks(landmarks):
-    """
-    Converts a list of Landmark objects to a numpy array.
-    Each Landmark object has attributes x, y, z.
-    """
-    # Debug: Print the first landmark to see its structure
-    print("First Landmark (or pose data):", landmarks[0])  # Debug
-    try:
-        # Try extracting from a Landmark object with attributes x, y, z
-        return np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks], dtype=np.float32)
-    except AttributeError:
-        # If landmarks are not Landmark objects, try extracting as coordinates
-        print("Landmarks are not Landmark objects, treating as coordinate list.")  # Debug
-        return np.array(landmarks, dtype=np.float32)  # Directly convert to numpy array
-
 # Load the pose data from the pickle file
 def load_pose(file_path):
     with open(file_path, 'rb') as f:
-        pose_data = pickle.load(f)
-    return extract_pose_from_landmarks(pose_data)  # Convert to numpy array of floats
+        return pickle.load(f)
 
 # Generate triplets: anchor, positive, negative
 def generate_triplets(dataset_path, output_file="triplets.pkl"):
@@ -64,7 +47,7 @@ def generate_triplets(dataset_path, output_file="triplets.pkl"):
         negative_person_id = random.choice([pid for pid in person_ids if pid != person_id])
         negative_path = random.choice(person_images[negative_person_id])  # Random negative image
         
-        # Load the poses from the pickle files (now converted to numpy arrays)
+        # Load the poses from the pickle files
         anchor = load_pose(anchor_path)
         positive = load_pose(positive_path)
         negative = load_pose(negative_path)
@@ -77,9 +60,7 @@ def generate_triplets(dataset_path, output_file="triplets.pkl"):
         pickle.dump(triplets, f)
     
     print(f"✅ Saved {len(triplets)} triplets to {output_file}")
-    
-    # Step 4: Convert the list of triplets into a NumPy array and return it
-    return np.array([np.stack([anchor, positive, negative]) for anchor, positive, negative in triplets])
+    return np.array(triplets)
 
 # Define dataset path (adjust this based on your file structure)
 dataset_path = "entireid/bounding_box_test_pose"  # Adjust this path if necessary
