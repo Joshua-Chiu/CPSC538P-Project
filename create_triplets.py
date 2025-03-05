@@ -10,7 +10,15 @@ def extract_pose_from_landmarks(landmarks):
     Converts a list of Landmark objects to a numpy array.
     Each Landmark object has attributes x, y, z.
     """
-    return np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks], dtype=np.float32)
+    # Debug: Print the first landmark to see its structure
+    print("First Landmark (or pose data):", landmarks[0])  # Debug
+    try:
+        # Try extracting from a Landmark object with attributes x, y, z
+        return np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks], dtype=np.float32)
+    except AttributeError:
+        # If landmarks are not Landmark objects, try extracting as coordinates
+        print("Landmarks are not Landmark objects, treating as coordinate list.")  # Debug
+        return np.array(landmarks, dtype=np.float32)  # Directly convert to numpy array
 
 # Load the pose data from the pickle file
 def load_pose(file_path):
