@@ -11,10 +11,17 @@ import torch.optim as optim
 
 # Load triplets from the pickle file
 with open("triplets.pkl", "rb") as f:
-    triplets = pickle.load(f)  # triplets is a list of (anchor, positive, negative)
+    triplets = pickle.load(f)  # triplets should be a list of (anchor, positive, negative)
+
+# Validate triplet data
+if not triplets or not isinstance(triplets, list):
+    raise ValueError("Error: 'triplets.pkl' does not contain valid triplet data.")
 
 # Convert triplets into a NumPy array for easier manipulation
-triplets = np.array(triplets)
+triplets = np.array(triplets, dtype=object)  # dtype=object to avoid shape issues
+
+# Detect available device (CPU or GPU)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Custom Dataset Class for PyTorch
 class TripletDataset(Dataset):
@@ -28,16 +35,15 @@ class TripletDataset(Dataset):
     def __len__(self):
         return len(self.triplets)
 
-    def __getitem__(self, idx):
-        # Extract anchor, positive, and negative pose embeddings
-        anchor, positive, negative = self.triplets[idx]
-        
-        # Convert to PyTorch tensors
-        return (
-            torch.tensor(anchor, dtype=torch.float32),
-            torch.tensor(positive, dtype=torch.float32),
-            torch.tensor(negative, dtype=torch.float32),
-        )
+    def __getitem__(self, index):
+        anchor, positive, negative = self.triplets[index]
+
+        # Ensure NumPy array conversion with proper dtype
+        anchor = torch.tensor(np.array(anchor, dtype=np.float32), device=device)
+        positive = torch.tensor(np.array(positive, dtype=np.float32), device=device)
+        negative = torch.tensor(np.array(negative, dtype=np.float32), device=device)
+
+        return anchor, positive, negative
 
 # Define DataLoader to handle batch processing
 train_loader = DataLoader(TripletDataset(triplets), batch_size=32, shuffle=True)
@@ -64,8 +70,8 @@ class PoseEmbeddingNet(nn.Module):
     def forward(self, x):
         return self.fc(x)
 
-# Instantiate the model
-model = PoseEmbeddingNet()
+# Instantiate the model and move it to the detected device
+model = PoseEmbeddingNet().to(device)
 
 # ==============================
 # 3️⃣ Define Loss Function & Optimizer
@@ -100,7 +106,7 @@ for epoch in range(num_epochs):
         loss.backward()  # Backpropagation to compute gradients
         optimizer.step()  # Update model parameters
 
-        total_loss += loss.item()  # Accumulate loss
+        total_loss += loss.detach().cpu().item()  # Accumulate loss
 
     # Print loss for the current epoch
     print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss:.4f}")
@@ -114,7 +120,7 @@ torch.save(model.state_dict(), "pose_triplet_model.pth")
 print("✅ Model saved successfully as 'pose_triplet_model.pth'")
 
 # Load model for evaluation or inference
-model.load_state_dict(torch.load("pose_triplet_model.pth"))
+model.load_state_dict(torch.load("pose_triplet_model.pth", map_location=device))
 model.eval()  # Set model to evaluation mode (disables dropout, batchnorm updates)
 
 print("✅ Model loaded and ready for evaluation")
