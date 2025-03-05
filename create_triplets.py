@@ -1,45 +1,49 @@
 import os
 import random
 import pickle
-import numpy as np
+from collections import defaultdict
 
-# Load a .pkl file
-def load_pose(file_path):
-    with open(file_path, 'rb') as f:
-        return pickle.load(f)
+# Define dataset path
+dataset_path = "entireid_test/test_pose/"  # Update the dataset path here
 
-# Generate triplets from dataset directory
-def generate_triplets(dataset_path, num_triplets=10000):
+# Step 1: Group images by individual based on their filename prefix
+def group_images_by_person(dataset_path):
+    person_images = defaultdict(list)
+    
+    # Loop through the dataset directory to group images by prefix
+    for file_name in os.listdir(dataset_path):
+        if file_name.endswith(".jpg") or file_name.endswith(".png"):  # Assuming images are in .jpg or .png format
+            person_id = file_name.split("_")[0]  # Extract the person ID from the filename
+            person_images[person_id].append(os.path.join(dataset_path, file_name))
+    
+    return person_images
+
+# Step 2: Generate triplets
+def generate_triplets(dataset_path, output_file="triplets.pkl"):
+    person_images = group_images_by_person(dataset_path)
     triplets = []
-    person_folders = [os.path.join(dataset_path, p) for p in os.listdir(dataset_path)]
 
-    for _ in range(num_triplets):
-        # Select an individual (Anchor)
-        anchor_folder = random.choice(person_folders)
-        anchor_files = os.listdir(anchor_folder)
+    for person_id, images in person_images.items():
+        if len(images) < 2:  # Skip individuals with fewer than 2 images
+            continue
 
-        if len(anchor_files) < 2:
-            continue  # Skip if not enough images
-
-        # Pick two different images for Anchor & Positive
-        anchor_file, positive_file = random.sample(anchor_files, 2)
-        anchor_path = os.path.join(anchor_folder, anchor_file)
-        positive_path = os.path.join(anchor_folder, positive_file)
-
-        # Select a different individual (Negative)
-        negative_folder = random.choice([f for f in person_folders if f != anchor_folder])
-        negative_file = random.choice(os.listdir(negative_folder))
-        negative_path = os.path.join(negative_folder, negative_file)
-
-        # Load pose keypoints
-        anchor = load_pose(anchor_path)
-        positive = load_pose(positive_path)
-        negative = load_pose(negative_path)
-
+        # Define the anchor (first image) and positive (second image) for this person
+        anchor = images[0]
+        positive = images[1]
+        
+        # Select a random negative image from a different individual
+        random_person_id = random.choice([pid for pid in person_images if pid != person_id])
+        negative = random.choice(person_images[random_person_id])
+        
+        # Append the triplet (anchor, positive, negative)
         triplets.append((anchor, positive, negative))
+    
+    # Step 3: Save the triplets to a file
+    with open(output_file, "wb") as f:
+        pickle.dump(triplets, f)
+    
+    print(f"✅ Saved {len(triplets)} triplets to {output_file}")
+    return triplets
 
-    return np.array(triplets)
-
-# Example Usage
-triplets = generate_triplets("dataset")
-print(f"Generated {len(triplets)} triplets.")
+# Step 5: Generate triplets
+triplets = generate_triplets(dataset_path, "triplets.pkl")
