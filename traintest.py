@@ -40,45 +40,49 @@ class TripletLoss(nn.Module):
         return loss.mean()  # Return the mean loss
 
 # 3. Function to load and process the triplet data
-def load_triplets(path):
-    # Load the triplets data from the pickle file
-    with open(path, 'rb') as f:
+def load_triplets(file_path):
+    with open(file_path, 'rb') as f:
         triplets = pickle.load(f)
-    
-    # Function to extract x, y, z coordinates from Landmark objects
-    def extract_landmarks(landmarks):
-        return np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
-    
+
     # Initialize lists to store anchor, positive, and negative samples
     anchors = []
     positives = []
     negatives = []
-    
-    # Iterate through all the triplets and extract the landmarks
+
+    # Function to extract landmarks from raw data (lists of coordinates)
+    def extract_landmarks(landmarks):
+        # Assuming each landmarks is a list of [x, y, z]
+        return np.array(landmarks)  # Directly return as numpy array
+
+    # Process each triplet
     for triplet in triplets:
         anchor_landmarks, positive_landmarks, negative_landmarks = triplet
-        
+
         # Extract the coordinates for each of the landmarks
         anchor = extract_landmarks(anchor_landmarks)
         positive = extract_landmarks(positive_landmarks)
         negative = extract_landmarks(negative_landmarks)
-        
+
         # Append to the corresponding lists
         anchors.append(anchor)
         positives.append(positive)
         negatives.append(negative)
-    
+
     # Convert lists into numpy arrays or PyTorch tensors
     anchors = np.array(anchors)
     positives = np.array(positives)
     negatives = np.array(negatives)
-    
+
     # If you're using PyTorch, convert to tensors
     anchors_tensor = torch.tensor(anchors, dtype=torch.float32)
     positives_tensor = torch.tensor(positives, dtype=torch.float32)
     negatives_tensor = torch.tensor(negatives, dtype=torch.float32)
-    
+
     return anchors_tensor, positives_tensor, negatives_tensor
+
+# Now, you can use this load_triplets function to load your data:
+anchors_tensor, positives_tensor, negatives_tensor = load_triplets('triplets.pkl')
+print("Triplet data loaded successfully!")
 
 # 4. Training Loop
 def train_triplet_loss_model(model, anchors_tensor, positives_tensor, negatives_tensor, optimizer, num_epochs=10):
