@@ -31,12 +31,23 @@ def triplet_loss(anchor, positive, negative, margin=1.0):
 
 # Load the triplet tensors from the file
 triplet_tensors = torch.load("triplet_tensors.pt")
+
+# Debug: Check the structure of the loaded data
+print(f"Loaded data type: {type(triplet_tensors)}")
+print(f"Sample of loaded data (first element): {triplet_tensors[0] if isinstance(triplet_tensors, list) else triplet_tensors}")
+
+# Unpack the tensors
 anchors_tensor, positives_tensor, negatives_tensor = triplet_tensors
 
 # Check if tensors are correctly loaded and are indeed tensors
 print(f"Anchors tensor type: {type(anchors_tensor)}")
 print(f"Positives tensor type: {type(positives_tensor)}")
 print(f"Negatives tensor type: {type(negatives_tensor)}")
+
+# Now, proceed with the rest of the model code
+# Example: Dataset creation and model training setup
+dataset = TensorDataset(anchors_tensor, positives_tensor, negatives_tensor)
+dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 # Make sure they are tensors, otherwise convert them
 if not isinstance(anchors_tensor, torch.Tensor):
