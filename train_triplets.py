@@ -11,7 +11,7 @@ import torch.optim as optim
 # ==============================
 
 # Load the pickle file (adjust the filename as needed)
-with open('00017_c021s0_572905.pkl', 'rb') as f:
+with open('triplets.pkl', 'rb') as f:
     data = pickle.load(f)
 
 landmarks = data[0]
