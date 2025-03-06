@@ -44,15 +44,15 @@ def load_triplets(file_path):
     with open(file_path, 'rb') as f:
         triplets = pickle.load(f)
 
+    # Function to extract x, y, z coordinates from Landmark objects
+    def extract_landmarks(landmarks):
+        # If landmarks are already in list form of [x, y, z], directly return them as np.array
+        return np.array(landmarks, dtype=np.float32).flatten()
+
     # Initialize lists to store anchor, positive, and negative samples
     anchors = []
     positives = []
     negatives = []
-
-    # Function to extract landmarks from raw data (lists of coordinates)
-    def extract_landmarks(landmarks):
-        # Assuming each landmarks is a list of [x, y, z]
-        return np.array(landmarks)  # Directly return as numpy array
 
     # Process each triplet
     for triplet in triplets:
@@ -68,10 +68,10 @@ def load_triplets(file_path):
         positives.append(positive)
         negatives.append(negative)
 
-    # Convert lists into numpy arrays or PyTorch tensors
-    anchors = np.array(anchors)
-    positives = np.array(positives)
-    negatives = np.array(negatives)
+    # Convert lists into numpy arrays (with the correct shape)
+    anchors = np.array(anchors, dtype=np.float32)
+    positives = np.array(positives, dtype=np.float32)
+    negatives = np.array(negatives, dtype=np.float32)
 
     # If you're using PyTorch, convert to tensors
     anchors_tensor = torch.tensor(anchors, dtype=torch.float32)
@@ -80,9 +80,11 @@ def load_triplets(file_path):
 
     return anchors_tensor, positives_tensor, negatives_tensor
 
-# Now, you can use this load_triplets function to load your data:
+# Load the triplets and convert to tensors
 anchors_tensor, positives_tensor, negatives_tensor = load_triplets('triplets.pkl')
-print("Triplet data loaded successfully!")
+
+# Output a success message if everything works
+print("Triplet data successfully loaded and converted into tensors.")
 
 # 4. Training Loop
 def train_triplet_loss_model(model, anchors_tensor, positives_tensor, negatives_tensor, optimizer, num_epochs=10):
