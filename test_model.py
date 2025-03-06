@@ -4,7 +4,7 @@ import random
 import cv2
 import mediapipe as mp
 import numpy as np
-from pose_embedding_model.pth import PoseEmbeddingNet  # Import the model you created
+from train_triplets import PoseEmbeddingNet  # Import the model class (not the .pth file)
 
 # Initialize MediaPipe Pose
 mp_pose = mp.solutions.pose
@@ -12,7 +12,7 @@ pose = mp_pose.Pose(static_image_mode=True, model_complexity=2)
 
 # Load the trained model
 model = PoseEmbeddingNet(input_size=99, embedding_size=128)
-model.load_state_dict(torch.load('pose_embedding_model.pth'))
+model.load_state_dict(torch.load('pose_embedding_model.pth'))  # Load the model weights
 model.eval()  # Set the model to evaluation mode
 
 # Define a function to extract pose landmarks from an image
