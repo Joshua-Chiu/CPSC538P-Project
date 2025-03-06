@@ -4,12 +4,12 @@ import torch
 
 # Function to extract x, y, z coordinates from a list of Landmark objects
 def extract_landmarks(landmarks):
-    # Debug: Check if the first element is a list instead of a Landmark object
+    # Handle nested list issue
     if isinstance(landmarks[0], list):
         print("⚠️ Nested list detected! Unpacking first element...")
-        landmarks = landmarks[0]  # Unpack the inner list
+        landmarks = landmarks[0]  
 
-    return np.array([[lm.x, lm.y, lm.z] for lm in landmarks], dtype=np.float32)  # Convert to NumPy array
+    return np.array([[lm.x, lm.y, lm.z] for lm in landmarks], dtype=np.float32)
 
 # Function to load triplets from pickle and convert them into tensors
 def load_triplets(file_path):
@@ -28,11 +28,10 @@ def load_triplets(file_path):
         positives.append(extract_landmarks(positive_landmarks))
         negatives.append(extract_landmarks(negative_landmarks))
 
-    # Convert to PyTorch tensors
+    # Convert to PyTorch tensors (optimized conversion to avoid slow warnings)
     anchors_tensor = torch.tensor(np.array(anchors), dtype=torch.float32)
     positives_tensor = torch.tensor(np.array(positives), dtype=torch.float32)
     negatives_tensor = torch.tensor(np.array(negatives), dtype=torch.float32)
-
 
     return anchors_tensor, positives_tensor, negatives_tensor
 
@@ -40,8 +39,15 @@ def load_triplets(file_path):
 triplets_file = "triplets.pkl"  # Ensure this file exists in your directory
 anchors_tensor, positives_tensor, negatives_tensor = load_triplets(triplets_file)
 
+# Save tensors to a .pt file
+torch.save({
+    'anchors': anchors_tensor,
+    'positives': positives_tensor,
+    'negatives': negatives_tensor
+}, "triplet_tensors.pt")
+
 # Output confirmation
-print("✅ Successfully loaded and converted triplets to tensors!")
+print("✅ Successfully loaded, converted, and saved triplets to triplet_tensors.pt!")
 print(f"Anchor tensor shape: {anchors_tensor.shape}")
 print(f"Positive tensor shape: {positives_tensor.shape}")
 print(f"Negative tensor shape: {negatives_tensor.shape}")
