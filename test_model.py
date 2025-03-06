@@ -71,8 +71,8 @@ if landmarks1 is not None and landmarks2 is not None:
     # Set a threshold for the similarity to decide if they are the same person
     threshold = 0.8  # You can adjust this threshold based on your experiments
     if similarity > threshold:
-        print("The images are of the same person.")
+        print("✅ The images are of the same person.")
     else:
-        print("The images are of different people.")
+        print("❌ The images are of different people.")
 else:
-    print("Pose landmarks were not detected for one or both images.")
+    print("⚠️Pose landmarks were not detected for one or both images.")
