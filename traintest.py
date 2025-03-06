@@ -54,12 +54,75 @@ def load_triplets(path):
     positives = []
     negatives = []
     
-    # Process the single triplet (since the file contains only one)
-    anchor_landmarks, positive_landmarks, negative_landmarks = triplets[0]
+    # Iterate through all the triplets and extract the landmarks
+    for triplet in triplets:
+        anchor_landmarks, positive_landmarks, negative_landmarks = triplet
+        
+        # Extract the coordinates for each of the landmarks
+        anchor = extract_landmarks(anchor_landmarks)
+        positive = extract_landmarks(positive_landmarks)
+        negative = extract_landmarks(negative_landmarks)
+        
+        # Append to the corresponding lists
+        anchors.append(anchor)
+        positives.append(positive)
+        negatives.append(negative)
     
-    # Extract the coordinates for each of the landmarks
-    anchor = extract_landmarks(anchor_landmarks)
-    positive = extract_landmarks(positive_landmarks)
-    negative = extract_landmarks(negative_landmarks)
+    # Convert lists into numpy arrays or PyTorch tensors
+    anchors = np.array(anchors)
+    positives = np.array(positives)
+    negatives = np.array(negatives)
     
-    # A
+    # If you're using PyTorch, convert to tensors
+    anchors_tensor = torch.tensor(anchors, dtype=torch.float32)
+    positives_tensor = torch.tensor(positives, dtype=torch.float32)
+    negatives_tensor = torch.tensor(negatives, dtype=torch.float32)
+    
+    return anchors_tensor, positives_tensor, negatives_tensor
+
+# 4. Training Loop
+def train_triplet_loss_model(model, anchors_tensor, positives_tensor, negatives_tensor, optimizer, num_epochs=10):
+    model.train()  # Set model to training mode
+    
+    for epoch in range(num_epochs):
+        # Flatten the anchors, positives, and negatives (from [N, M, 3] to [N, 99])
+        anchors_tensor = anchors_tensor.view(anchors_tensor.size(0), -1)  # Flatten to [N, 99]
+        positives_tensor = positives_tensor.view(positives_tensor.size(0), -1)  # Flatten to [N, 99]
+        negatives_tensor = negatives_tensor.view(negatives_tensor.size(0), -1)  # Flatten to [N, 99]
+        
+        # Zero the gradients
+        optimizer.zero_grad()
+        
+        # Forward pass
+        anchor_embeddings = model(anchors_tensor)
+        positive_embeddings = model(positives_tensor)
+        negative_embeddings = model(negatives_tensor)
+        
+        # Compute triplet loss
+        loss = triplet_loss_fn(anchor_embeddings, positive_embeddings, negative_embeddings)
+        
+        # Backward pass
+        loss.backward()
+        
+        # Update model parameters
+        optimizer.step()
+        
+        # Print the loss for this epoch
+        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item()}")
+        
+    print("Training completed successfully!")
+# 5. Main Execution: Define and Train the Model
+if __name__ == "__main__":
+    # Example usage:
+    # 1. Load triplet data
+    anchors_tensor, positives_tensor, negatives_tensor = load_triplets('triplets.pkl')
+    
+    # 2. Create model and loss function
+    model = TripletLossModel(input_size=99, embedding_size=128)
+    triplet_loss_fn = TripletLoss(margin=1.0)
+    
+    # 3. Define an optimizer
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    
+    # 4. Train the model
+    train_triplet_loss_model(model, anchors_tensor, positives_tensor, negatives_tensor, optimizer, num_epochs=10)
