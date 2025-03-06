@@ -26,21 +26,18 @@ print("Shape of landmarks array:", landmarks_array.shape)
 
 # Ensure the pose data is in a numeric format
 def load_pose(pose_data):
-    """
-    Converts pose data into a numeric format.
-    - If it's a list of Landmark objects, extract [x, y, z].
-    - If it's already a NumPy array, convert it to float32.
-    """
     if isinstance(pose_data, list):
-        # Convert list of Landmark objects (x, y, z) into a NumPy array
-        pose = np.array([[kp.x, kp.y, kp.z] for kp in pose_data], dtype=np.float32)
+        # Check if the list contains Landmark-like objects or raw numeric values
+        if all(hasattr(kp, 'x') and hasattr(kp, 'y') and hasattr(kp, 'z') for kp in pose_data):
+            pose = np.array([[kp.x, kp.y, kp.z] for kp in pose_data], dtype=np.float32)
+        else:
+            pose = np.array(pose_data, dtype=np.float32)  # Assume it's already a list of numbers
     elif isinstance(pose_data, np.ndarray):
-        # If already a NumPy array, ensure it's float32
         pose = pose_data.astype(np.float32)
     else:
         raise ValueError(f"Unknown pose data type: {type(pose_data)}. Expected list or ndarray.")
-
     return pose
+
 
 # Load triplets from the pickle file
 with open("triplets.pkl", "rb") as f:
