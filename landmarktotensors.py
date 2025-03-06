@@ -29,9 +29,10 @@ def load_triplets(file_path):
         negatives.append(extract_landmarks(negative_landmarks))
 
     # Convert to PyTorch tensors
-    anchors_tensor = torch.tensor(anchors, dtype=torch.float32)
-    positives_tensor = torch.tensor(positives, dtype=torch.float32)
-    negatives_tensor = torch.tensor(negatives, dtype=torch.float32)
+    anchors_tensor = torch.tensor(np.array(anchors), dtype=torch.float32)
+    positives_tensor = torch.tensor(np.array(positives), dtype=torch.float32)
+    negatives_tensor = torch.tensor(np.array(negatives), dtype=torch.float32)
+
 
     return anchors_tensor, positives_tensor, negatives_tensor
 
