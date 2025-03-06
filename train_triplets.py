@@ -1,162 +1,69 @@
-import pickle
-import numpy as np
-import mediapipe as mp
 import torch
-from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+import torch.nn.functional as F
 
-# ==============================
-# 1️⃣ Load and Preprocess Triplet Data
-# ==============================
-
-# Load the pickle file (adjust the filename as needed)
-with open('triplets.pkl', 'rb') as f:
-    data = pickle.load(f)
-
-landmarks = data[0]
-
-# Create an array of shape (33, 3) where each row corresponds to [x, y, z] of a landmark.
-landmarks_array = np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
-
-# Transpose the array to get the desired shape (3, 33)
-landmarks_array = landmarks_array.T
-
-print("Shape of landmarks array:", landmarks_array.shape)
-
-# Ensure the pose data is in a numeric format
-def load_pose(pose_data):
-    if isinstance(pose_data, list):
-        # Check if the list contains Landmark-like objects or raw numeric values
-        if all(hasattr(kp, 'x') and hasattr(kp, 'y') and hasattr(kp, 'z') for kp in pose_data):
-            pose = np.array([[kp.x, kp.y, kp.z] for kp in pose_data], dtype=np.float32)
-        else:
-            pose = np.array(pose_data, dtype=np.float32)  # Assume it's already a list of numbers
-    elif isinstance(pose_data, np.ndarray):
-        pose = pose_data.astype(np.float32)
-    else:
-        raise ValueError(f"Unknown pose data type: {type(pose_data)}. Expected list or ndarray.")
-    return pose
-
-
-# Load triplets from the pickle file
-with open("triplets.pkl", "rb") as f:
-    triplets = pickle.load(f)  # triplets should be a list of (anchor, positive, negative)
-
-# Validate triplet data
-if not triplets or not isinstance(triplets, list):
-    raise ValueError("Error: 'triplets.pkl' does not contain valid triplet data.")
-
-# Convert triplets into a NumPy array for easier manipulation
-triplets = np.array(triplets, dtype=object)  # dtype=object to avoid shape issues
-
-# ==============================
-# 2️⃣ Custom Dataset Class
-# ==============================
-
-class TripletDataset(Dataset):
-    """
-    Custom Dataset class for loading triplet data in PyTorch DataLoader.
-    Each item consists of (anchor, positive, negative) pose embeddings.
-    """
-    def __init__(self, triplets):
-        self.triplets = triplets
-
-    def __len__(self):
-        return len(self.triplets)
-
-    def __getitem__(self, index):
-        anchor, positive, negative = self.triplets[index]
-
-        # Load and process the poses
-        anchor = load_pose(anchor)  # Load pose for anchor
-        positive = load_pose(positive)  # Load pose for positive
-        negative = load_pose(negative)  # Load pose for negative
-
-        # Convert to PyTorch tensors, ensuring they are numeric arrays
-        anchor = torch.tensor(anchor, dtype=torch.float32)
-        positive = torch.tensor(positive, dtype=torch.float32)
-        negative = torch.tensor(negative, dtype=torch.float32)
-
-        return anchor, positive, negative
-
-# Define DataLoader to handle batch processing
-train_loader = DataLoader(TripletDataset(triplets), batch_size=32, shuffle=True)
-
-# ==============================
-# 3️⃣ Define the Neural Network
-# ==============================
-
+# Define the neural network model for feature extraction
 class PoseEmbeddingNet(nn.Module):
-    """
-    Neural network that converts input pose keypoints into an embedding space.
-    This is a simple feedforward network (MLP).
-    """
-    def __init__(self, input_dim=34, embedding_dim=128):  # Adjust input_dim based on pose data size
+    def __init__(self, input_size=99, embedding_size=128):
         super(PoseEmbeddingNet, self).__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(input_dim, 256),  # First hidden layer (256 neurons)
-            nn.ReLU(),
-            nn.Linear(256, 128),  # Second hidden layer (128 neurons)
-            nn.ReLU(),
-            nn.Linear(128, embedding_dim)  # Output embedding (128-dimensional)
-        )
-
-    def forward(self, x):
-        return self.fc(x)
-
-# Instantiate the model and move it to the detected device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = PoseEmbeddingNet().to(device)
-
-# ==============================
-# 4️⃣ Define Loss Function & Optimizer
-# ==============================
-
-# Use PyTorch's built-in Triplet Margin Loss function
-triplet_loss = nn.TripletMarginLoss(margin=1.0)  # Margin controls how far apart negatives should be
-
-# Define an optimizer (Adam is commonly used for deep learning tasks)
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-# ==============================
-# 5️⃣ Train the Model
-# ==============================
-
-# Number of training epochs (adjust as needed)
-num_epochs = 20  
-
-for epoch in range(num_epochs):
-    total_loss = 0  # Track total loss per epoch
+        # Define layers for the network
+        self.fc1 = nn.Linear(input_size, 512)  # First fully connected layer
+        self.fc2 = nn.Linear(512, 256)         # Second fully connected layer
+        self.fc3 = nn.Linear(256, embedding_size)  # Output layer (embedding)
     
-    for anchor, positive, negative in train_loader:
-        optimizer.zero_grad()  # Reset gradients to avoid accumulation
+    def forward(self, x):
+        x = F.relu(self.fc1(x))  # ReLU activation after first layer
+        x = F.relu(self.fc2(x))  # ReLU activation after second layer
+        x = self.fc3(x)          # Output embedding
+        return x
 
-        # Forward pass: Generate embeddings for anchor, positive, and negative samples
-        anchor_emb = model(anchor)
-        positive_emb = model(positive)
-        negative_emb = model(negative)
+# Triplet loss function
+def triplet_loss(anchor, positive, negative, margin=1.0):
+    # Compute the pairwise distances
+    pos_dist = torch.norm(anchor - positive, p=2, dim=1)  # Distance between anchor and positive
+    neg_dist = torch.norm(anchor - negative, p=2, dim=1)  # Distance between anchor and negative
+    
+    # Triplet loss formula: max(0, d(a, p) - d(a, n) + margin)
+    loss = torch.clamp(pos_dist - neg_dist + margin, min=0.0)
+    return loss.mean()
 
-        # Compute triplet loss
-        loss = triplet_loss(anchor_emb, positive_emb, negative_emb)
-        loss.backward()  # Backpropagation to compute gradients
-        optimizer.step()  # Update model parameters
+# Load the triplet tensors from the file
+triplet_tensors = torch.load("triplet_tensors.pt")
+anchors_tensor, positives_tensor, negatives_tensor = triplet_tensors
 
-        total_loss += loss.detach().cpu().item()  # Accumulate loss
+# Create a DataLoader for the triplet dataset
+dataset = TensorDataset(anchors_tensor, positives_tensor, negatives_tensor)
+dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
-    # Print loss for the current epoch
-    print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss:.4f}")
+# Initialize the model, loss function, and optimizer
+model = PoseEmbeddingNet(input_size=99, embedding_size=128)  # 99 because 33 joints * 3 (x, y, z)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
-# ==============================
-# 6️⃣ Save and Evaluate the Model
-# ==============================
+# Training loop
+num_epochs = 10
+for epoch in range(num_epochs):
+    model.train()  # Set model to training mode
+    total_loss = 0
+    for batch_idx, (anchor, positive, negative) in enumerate(dataloader):
+        optimizer.zero_grad()  # Zero the gradients
+        
+        # Forward pass: get embeddings for anchor, positive, and negative
+        anchor_embed = model(anchor)
+        positive_embed = model(positive)
+        negative_embed = model(negative)
+        
+        # Calculate triplet loss
+        loss = triplet_loss(anchor_embed, positive_embed, negative_embed)
+        total_loss += loss.item()  # Accumulate loss
+        
+        # Backward pass: compute gradients
+        loss.backward()
+        optimizer.step()  # Update the model parameters
+        
+    print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(dataloader)}")
 
-# Save the trained model weights to a file
-torch.save(model.state_dict(), "pose_triplet_model.pth")
-print("✅ Model saved successfully as 'pose_triplet_model.pth'")
-
-# Load model for evaluation or inference
-model.load_state_dict(torch.load("pose_triplet_model.pth", map_location=device))
-model.eval()  # Set model to evaluation mode (disables dropout, batchnorm updates)
-
-print("✅ Model loaded and ready for evaluation")
+# Save the trained model
+torch.save(model.state_dict(), "pose_embedding_model.pth")
+print("✅ Model training completed and saved as 'pose_embedding_model.pth'")
