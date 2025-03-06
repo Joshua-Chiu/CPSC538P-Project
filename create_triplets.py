@@ -10,7 +10,7 @@ def load_pose(file_path):
         return pickle.load(f)
 
 # Generate triplets: anchor, positive, negative
-def generate_triplets(dataset_path, output_file="triplets.pkl"):
+def generate_triplets(dataset_path, output_file="triplets_test.pkl"):
     triplets = []
     person_images = defaultdict(list)
 
@@ -63,7 +63,7 @@ def generate_triplets(dataset_path, output_file="triplets.pkl"):
     return np.array(triplets)
 
 # Define dataset path (adjust this based on your file structure)
-dataset_path = "entireid/bounding_box_test_pose"  # Adjust this path if necessary
+dataset_path = "entireid_test/test_pose"  # Adjust this path if necessary_test/test
 
 # Generate triplets and save to file
-triplets = generate_triplets(dataset_path, "triplets.pkl")
+triplets = generate_triplets(dataset_path, "triplets_test.pkl")
