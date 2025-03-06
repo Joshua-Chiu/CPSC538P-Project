@@ -14,6 +14,8 @@ class PoseEmbeddingNet(nn.Module):
         self.fc3 = nn.Linear(256, embedding_size)  # Output layer (embedding)
     
     def forward(self, x):
+        # Flatten the input tensor to a 1D vector (batch_size, 99)
+        x = x.view(x.size(0), -1)  # Flatten: batch_size, 33*3 -> batch_size, 99
         x = F.relu(self.fc1(x))  # ReLU activation after first layer
         x = F.relu(self.fc2(x))  # ReLU activation after second layer
         x = self.fc3(x)          # Output embedding
