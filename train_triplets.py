@@ -1,5 +1,6 @@
 import pickle
 import numpy as np
+import mediapipe as mp
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
@@ -8,6 +9,20 @@ import torch.optim as optim
 # ==============================
 # 1️⃣ Load and Preprocess Triplet Data
 # ==============================
+
+# Load the pickle file (adjust the filename as needed)
+with open('00017_c021s0_572905.pkl', 'rb') as f:
+    data = pickle.load(f)
+
+landmarks = data[0]
+
+# Create an array of shape (33, 3) where each row corresponds to [x, y, z] of a landmark.
+landmarks_array = np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
+
+# Transpose the array to get the desired shape (3, 33)
+landmarks_array = landmarks_array.T
+
+print("Shape of landmarks array:", landmarks_array.shape)
 
 # Ensure the pose data is in a numeric format
 def load_pose(pose_data):
@@ -26,7 +41,6 @@ def load_pose(pose_data):
         raise ValueError(f"Unknown pose data type: {type(pose_data)}. Expected list or ndarray.")
 
     return pose
-
 
 # Load triplets from the pickle file
 with open("triplets.pkl", "rb") as f:
