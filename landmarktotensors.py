@@ -4,12 +4,22 @@ import torch
 
 # Function to extract x, y, z coordinates from a list of Landmark objects
 def extract_landmarks(landmarks):
+    # Debug: Check if the first element is a list instead of a Landmark object
+    if isinstance(landmarks[0], list):
+        print("⚠️ Nested list detected! Unpacking first element...")
+        landmarks = landmarks[0]  # Unpack the inner list
+
     return np.array([[lm.x, lm.y, lm.z] for lm in landmarks], dtype=np.float32)  # Convert to NumPy array
 
 # Function to load triplets from pickle and convert them into tensors
 def load_triplets(file_path):
     with open(file_path, 'rb') as f:
         triplets = pickle.load(f)  # Load the triplets.pkl file
+
+    # Debugging: Print out the structure of one sample triplet
+    print(f"Sample triplet structure: {type(triplets[0])}")  # Should be a tuple
+    print(f"Sample anchor structure: {type(triplets[0][0])}")  # Should be a list
+    print(f"Sample landmark structure: {type(triplets[0][0][0])}")  # Should be a Landmark object
 
     anchors, positives, negatives = [], [], []
 
