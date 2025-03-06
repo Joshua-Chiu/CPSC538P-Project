@@ -4,7 +4,7 @@ import random
 import cv2
 import mediapipe as mp
 import numpy as np
-from model import PoseEmbeddingNet  # Import the model you created
+from pose_embedding_model.pth import PoseEmbeddingNet  # Import the model you created
 
 # Initialize MediaPipe Pose
 mp_pose = mp.solutions.pose
