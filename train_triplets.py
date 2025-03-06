@@ -33,7 +33,25 @@ def triplet_loss(anchor, positive, negative, margin=1.0):
 triplet_tensors = torch.load("triplet_tensors.pt")
 anchors_tensor, positives_tensor, negatives_tensor = triplet_tensors
 
-# Create a DataLoader for the triplet dataset
+# Check if tensors are correctly loaded and are indeed tensors
+print(f"Anchors tensor type: {type(anchors_tensor)}")
+print(f"Positives tensor type: {type(positives_tensor)}")
+print(f"Negatives tensor type: {type(negatives_tensor)}")
+
+# Make sure they are tensors, otherwise convert them
+if not isinstance(anchors_tensor, torch.Tensor):
+    print("Converting anchors_tensor to tensor...")
+    anchors_tensor = torch.tensor(anchors_tensor, dtype=torch.float32)
+
+if not isinstance(positives_tensor, torch.Tensor):
+    print("Converting positives_tensor to tensor...")
+    positives_tensor = torch.tensor(positives_tensor, dtype=torch.float32)
+
+if not isinstance(negatives_tensor, torch.Tensor):
+    print("Converting negatives_tensor to tensor...")
+    negatives_tensor = torch.tensor(negatives_tensor, dtype=torch.float32)
+
+# Now create the DataLoader
 dataset = TensorDataset(anchors_tensor, positives_tensor, negatives_tensor)
 dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
