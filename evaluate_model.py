@@ -12,7 +12,7 @@ from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
 
 # -----------------------------------------------------------------------------
-# 1. Helper Functions & Model Definition
+# 1. Helper Functions & Updated Model Definition
 # -----------------------------------------------------------------------------
 
 def load_pose(pose_data):
@@ -21,6 +21,7 @@ def load_pose(pose_data):
     This function assumes that pose_data is either:
       - A list of Landmark objects (with attributes x, y, z), or
       - Already a numpy array.
+    Adjust this if your test pkl files have a different structure.
     """
     if isinstance(pose_data, list):
         pose = np.array([[kp.x, kp.y, kp.z] for kp in pose_data], dtype=np.float32)
@@ -33,20 +34,22 @@ def load_pose(pose_data):
 class PoseEmbeddingNet(nn.Module):
     """
     Neural network that converts input pose keypoints into an embedding.
-    Must match the architecture used during training.
+    This version is updated to match the training architecture:
+      - fc1: Linear(99, 512)
+      - fc2: Linear(512, 256)
+      - fc3: Linear(256, 128)
     """
-    def __init__(self, input_dim=34, embedding_dim=128):
+    def __init__(self, input_dim=99, hidden_dim1=512, hidden_dim2=256, embedding_dim=128):
         super(PoseEmbeddingNet, self).__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(input_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, embedding_dim)
-        )
+        self.fc1 = nn.Linear(input_dim, hidden_dim1)
+        self.fc2 = nn.Linear(hidden_dim1, hidden_dim2)
+        self.fc3 = nn.Linear(hidden_dim2, embedding_dim)
         
     def forward(self, x):
-        return self.fc(x)
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
 # -----------------------------------------------------------------------------
 # 2. Query Dataset Definition for "query_pose" Folder
@@ -56,6 +59,8 @@ class QueryPoseDataset(Dataset):
     """
     Dataset for evaluation from the "query_pose" folder.
     Assumes each .pkl file in the folder contains a tuple (pose, label).
+    The pose data is expected to be compatible with the input of the model,
+    i.e., a flat vector of length 99.
     """
     def __init__(self, folder_path):
         self.folder_path = folder_path
@@ -68,13 +73,11 @@ class QueryPoseDataset(Dataset):
     def __getitem__(self, index):
         file_path = self.file_paths[index]
         with open(file_path, "rb") as f:
-            # Adjust this if your pickle files have a different structure.
+            # Expect each file to contain a tuple: (pose, label)
             sample = pickle.load(f)
-        # Expecting sample to be a tuple: (pose, label)
         pose, label = sample
-        # Process the pose data
         pose = load_pose(pose)
-        # Convert to tensor (ensure shape is as expected by the model, e.g., a flat vector of length 34)
+        # Convert pose to tensor; ensure its shape is [99] (or reshaped appropriately)
         pose = torch.tensor(pose, dtype=torch.float32)
         return pose, label
 
@@ -87,7 +90,7 @@ def compute_similarity_scores(embeddings, labels, metric='cosine'):
     Compute similarity scores between each unique pair of embeddings.
     Returns:
       - scores: list of similarity scores.
-      - gt: ground truth (1 if same label, 0 otherwise).
+      - gt: ground truth list (1 if same label, 0 otherwise).
     """
     n = embeddings.shape[0]
     scores = []
@@ -166,8 +169,8 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # --- Load the Trained Model ---
-    model = PoseEmbeddingNet().to(device)
-    model.load_state_dict(torch.load("pose_triplet_model.pth", map_location=device))
+    model = PoseEmbeddingNet(input_dim=99, hidden_dim1=512, hidden_dim2=256, embedding_dim=128).to(device)
+    model.load_state_dict(torch.load("pose_embedding_model.pth", map_location=device))
     model.eval()
     print("✅ Model loaded for evaluation.")
     
@@ -203,3 +206,4 @@ if __name__ == "__main__":
     # 4. Nearest Neighbor Accuracy
     nn_acc = nearest_neighbor_accuracy(all_embeddings, all_labels)
     print("Query Nearest Neighbor Accuracy: {:.4f}".format(nn_acc))
+
