@@ -82,8 +82,14 @@ class QueryPoseDataset(Dataset):
         with open(file_path, "rb") as f:
             # Expect each file to contain a tuple: (pose, label)
             sample = pickle.load(f)
-        print(f"[DEBUG] Loaded sample: {sample}")  # Remove or comment out if too verbose
-        pose, label = sample
+            print(f"[DEBUG] Loaded sample type: {type(sample)}")
+            print(f"[DEBUG] Sample contents: {sample}")
+
+            if isinstance(sample, tuple) and len(sample) == 2:
+                pose, label = sample
+            else:
+                raise ValueError(f"Invalid sample format in file {file_path}. Expected (pose, label), got: {sample}")
+
         pose = load_pose(pose)
         # Convert pose to tensor; expected shape is [99]
         pose = torch.tensor(pose, dtype=torch.float32)
@@ -184,7 +190,7 @@ if __name__ == "__main__":
     
     # --- Load the Query Dataset ---
     # Update the path to the correct location if necessary
-    query_folder = "/Users/rowelsabahat/Desktop/CPSC538P-Project/entireid/query_pose"
+    query_folder = "/Users/andre/Desktop/CPSC538P-Project/entireid/query_pose"
     query_dataset = QueryPoseDataset(query_folder)
     print("[DEBUG] Dataset length:", len(query_dataset))
     query_loader = DataLoader(query_dataset, batch_size=32, shuffle=False)
