@@ -66,4 +66,4 @@ def generate_triplets(dataset_path, output_file="triplets_test.pkl"):
 dataset_path = "entireid/bounding_box_test_pose"  # Adjust this path if necessary_test/test
 
 # Generate triplets and save to file
-triplets = generate_triplets(dataset_path, "triplets_test.pkl")
+triplets = generate_triplets(dataset_path, "triplets.pkl")
