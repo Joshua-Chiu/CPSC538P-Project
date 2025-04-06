@@ -83,6 +83,10 @@ if __name__ == "__main__":
             f.write(f"{pair}\n")
     print(f"Evaluation pairs saved to {output_file}")
 
+    # Debug: Print unique labels
+    labels = [label for _, _, label in pairs]
+    print(f"\nUnique labels in generated pairs: {set(labels)}")
+
     # Print sample pairs for debugging
     for i in range(min(10, len(pairs))):
         print(pairs[i])
