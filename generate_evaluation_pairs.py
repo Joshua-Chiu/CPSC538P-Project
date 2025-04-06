@@ -69,12 +69,20 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(__file__)
     dataset_path = os.path.join(current_dir, "entireid", "bounding_box_test")
 
+    # Generate the pairs
     pairs = create_image_pairs(
         dataset_path,
         max_positive_pairs_per_id=5,  # Adjustable
         num_negative_pairs_per_id=5   # Adjustable
     )
 
-    # Print sample pairs
+    # Save pairs to a txt file
+    output_file = "evaluation_pairs.txt"
+    with open(output_file, "w") as f:
+        for pair in pairs:
+            f.write(f"{pair}\n")
+    print(f"Evaluation pairs saved to {output_file}")
+
+    # Print sample pairs for debugging
     for i in range(min(10, len(pairs))):
         print(pairs[i])
