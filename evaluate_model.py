@@ -92,7 +92,8 @@ class QueryPoseDataset(Dataset):
 
         pose = load_pose(pose)
         # Convert pose to tensor; expected shape is [99]
-        pose = torch.tensor(pose, dtype=torch.float32)
+        pose = torch.tensor(pose, dtype=torch.float32).view(-1)  # shape becomes [99]
+
         return pose, label
 
 # -----------------------------------------------------------------------------
@@ -127,6 +128,11 @@ def compute_roc_auc(embeddings, labels, metric='cosine'):
     """
     Compute ROC-AUC score from pairwise similarity scores.
     """
+    # Check if there is more than one unique class in labels
+    if len(np.unique(labels)) < 2:
+        print("[WARNING] Only one class found in labels. Skipping ROC AUC computation.")
+        return None  # Return None if only one class is present
+    
     scores, gt = compute_similarity_scores(embeddings, labels, metric)
     auc = roc_auc_score(gt, scores)
     return auc
@@ -211,20 +217,30 @@ if __name__ == "__main__":
         print("[ERROR] No embeddings were collected. Please check the dataset and DataLoader.")
         exit(1)
     
-    all_embeddings = np.vstack(all_embeddings)
-    all_labels = np.array(all_labels)
-    
-    # --- Evaluate the Model ---
-    # 1. ROC-AUC Analysis (Print the score)
-    auc = compute_roc_auc(all_embeddings, all_labels, metric='cosine')
+# --- Evaluate the Model ---
+
+# Setup. Check unique classes in all_labels
+
+unique_classes = np.unique(all_labels)
+print(f"Unique classes in labels: {unique_classes}")
+print(f"Number of unique classes: {len(unique_classes)}")
+# 1. ROC-AUC Analysis (Print the score)
+auc = compute_roc_auc(all_embeddings, all_labels, metric='cosine')
+
+if auc is not None:
     print("Query ROC-AUC Score: {:.4f}".format(auc))
-    
-    # 2. Plot the ROC Curve
     plot_roc_curve(all_embeddings, all_labels, metric='cosine')
-    
-    # 3. t-SNE Visualization
-    plot_tsne(all_embeddings, all_labels)
-    
-    # 4. Nearest Neighbor Accuracy
-    nn_acc = nearest_neighbor_accuracy(all_embeddings, all_labels)
-    print("Query Nearest Neighbor Accuracy: {:.4f}".format(nn_acc))
+else:
+    print("[INFO] Skipping ROC Curve plot due to insufficient class diversity.")
+
+# 2. t-SNE Visualization
+# After collecting all embeddings and labels in the loop
+all_embeddings = np.vstack(all_embeddings)  # Converts list of arrays into a 2D NumPy array
+all_labels = np.array(all_labels)
+
+plot_tsne(all_embeddings, all_labels)
+
+# 3. Nearest Neighbor Accuracy
+nn_acc = nearest_neighbor_accuracy(all_embeddings, all_labels)
+print("Query Nearest Neighbor Accuracy: {:.4f}".format(nn_acc))
+
