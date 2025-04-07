@@ -38,7 +38,7 @@ def batch_extract_landmarks(image_paths):
     with ProcessPoolExecutor() as executor:
         return list(executor.map(extract_pose_landmarks, image_paths))
 
-def evaluate_model(image_pairs, dataset_path):
+def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     start_time = time.time()
     dataset_name = os.path.basename(dataset_path.rstrip("/\\"))
     true_labels = []
@@ -94,9 +94,10 @@ def evaluate_model(image_pairs, dataset_path):
         print("❌ No valid embeddings were generated. Exiting early.")
         return None, None, None
 
+    # t-SNE visualization
     print("🚦 Starting t-SNE visualization...")
-    all_embeddings = np.vstack(all_embeddings)
 
+    all_embeddings = np.vstack(all_embeddings)
 
     # Sample a smaller subset for t-SNE
     sample_size = min(10000, len(all_embeddings))
@@ -129,30 +130,24 @@ def evaluate_model(image_pairs, dataset_path):
     print(f"📸 t-SNE plot saved as {tsne_filename}")
     plt.close()
 
-    dist_matrix = cdist(all_embeddings, all_embeddings, metric='cosine')
-    np.fill_diagonal(dist_matrix, np.inf)
-    nearest_neighbors = np.argmin(dist_matrix, axis=1)
-    correct_nn = sum(1 for i in range(len(all_labels)) if all_labels[i] == all_labels[nearest_neighbors[i]])
-    nn_accuracy = correct_nn / len(all_labels)
-    print(f"Nearest Neighbor Accuracy: {nn_accuracy * 100:.2f}%")
-
-        # Optimize ROC curve computation by binning predicted scores
+    # ROC Curve
     true_labels = np.array(true_labels)
     predicted_scores = np.array(predicted_scores)
 
+    # Binning the predicted scores for faster ROC computation
     bins = np.linspace(0, 1, num=200)  # You can try 100 for even faster runs
     digitized_scores = np.digitize(predicted_scores, bins) / len(bins)
 
+    # ROC curve computation
     fpr, tpr, thresholds = roc_curve(true_labels, digitized_scores)
     auc_score = auc(fpr, tpr)
-
 
     print(f"Correctly identified {correct_positive} positive pairs.")
     print(f"Correctly identified {correct_negative} negative pairs.")
     print(f"Total true positive pairs: {np.sum(true_labels == 1)}")
     print(f"Total true negative pairs: {np.sum(true_labels == 0)}")
 
-
+    # Plotting ROC curve
     plt.figure()
     plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
@@ -175,7 +170,6 @@ def evaluate_model(image_pairs, dataset_path):
         f.write(f"Total true positives: {np.sum(true_labels == 1)}\n")
         f.write(f"Total true negatives: {np.sum(true_labels == 0)}\n")
         f.write(f"AUC Score: {auc_score:.4f}\n")
-        f.write(f"Nearest Neighbor Accuracy: {nn_accuracy * 100:.2f}%\n")
 
     print(f"📄 Evaluation summary saved as {summary_filename}")
 
@@ -195,7 +189,7 @@ def load_image_pairs(filepath):
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq3")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs_all_combos.txt")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs.txt")
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:
