@@ -2,17 +2,10 @@ import os
 import random
 from itertools import combinations
 from collections import defaultdict
-import mediapipe as mp
 import cv2
-
-# Initialize Mediapipe Pose model
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 def create_image_pairs(dataset_path, max_positive_pairs_per_id=5, num_negative_pairs_per_id=5):
     person_to_images = defaultdict(list)
-    images_with_landmarks = 0
-    images_without_landmarks = 0
 
     # Group images by person ID (prefix before the first underscore)
     for filename in os.listdir(dataset_path):
@@ -20,16 +13,6 @@ def create_image_pairs(dataset_path, max_positive_pairs_per_id=5, num_negative_p
             person_id = filename.split("_")[0]
             image_path = os.path.join(dataset_path, filename)
             person_to_images[person_id].append(image_path)
-
-            # Check if landmarks are detected for the image
-            image = cv2.imread(image_path)
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = pose.process(image_rgb)
-
-            if results.pose_landmarks is not None:
-                images_with_landmarks += 1
-            else:
-                images_without_landmarks += 1
 
     image_pairs = []
     positive_pairs_count = defaultdict(int)
@@ -42,19 +25,7 @@ def create_image_pairs(dataset_path, max_positive_pairs_per_id=5, num_negative_p
         if len(images) < 2:
             continue  # Can't form pairs with fewer than 2 images
 
-        # Filter images where both have landmarks detected
-        valid_images = []
-        for img in images:
-            image = cv2.imread(img)
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = pose.process(image_rgb)
-            if results.pose_landmarks is not None:
-                valid_images.append(img)
-
-        if len(valid_images) < 2:
-            continue  # Can't form pairs if not enough images with landmarks
-
-        all_pos_combinations = list(combinations(valid_images, 2))
+        all_pos_combinations = list(combinations(images, 2))
         random.shuffle(all_pos_combinations)
 
         num_to_sample = min(max_positive_pairs_per_id, len(all_pos_combinations))
@@ -76,19 +47,9 @@ def create_image_pairs(dataset_path, max_positive_pairs_per_id=5, num_negative_p
             img1 = random.choice(person_to_images[person_id])
             img2 = random.choice(person_to_images[other_id])
 
-            # Ensure both images have landmarks detected
-            image1 = cv2.imread(img1)
-            image_rgb1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
-            results1 = pose.process(image_rgb1)
-
-            image2 = cv2.imread(img2)
-            image_rgb2 = cv2.cvtColor(image2, cv2.COLOR_BGR2RGB)
-            results2 = pose.process(image_rgb2)
-
-            if results1.pose_landmarks is not None and results2.pose_landmarks is not None:
-                image_pairs.append((img1, img2, 0))
-                negative_pairs_count[person_id] += 1  # Count negative pairs for the person
-                total_negative += 1
+            image_pairs.append((img1, img2, 0))
+            negative_pairs_count[person_id] += 1  # Count negative pairs for the person
+            total_negative += 1
 
     random.shuffle(image_pairs)
 
@@ -102,10 +63,6 @@ def create_image_pairs(dataset_path, max_positive_pairs_per_id=5, num_negative_p
     print(f"Total positive pairs generated: {total_positive}")
     print(f"Total negative pairs generated: {total_negative}")
     print(f"Total image pairs: {len(image_pairs)}\n")
-    
-    # Print out the number of images with and without landmarks in the dataset
-    print(f"Number of images with landmarks: {images_with_landmarks}")
-    print(f"Number of images without landmarks: {images_without_landmarks}")
 
     return image_pairs
 
