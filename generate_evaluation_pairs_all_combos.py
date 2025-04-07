@@ -77,7 +77,7 @@ if __name__ == "__main__":
     )
 
     # Save output file in the same directory
-    output_file = os.path.join(current_dir, "evaluation_pairs.txt")
+    output_file = os.path.join(current_dir, "evaluation_pairs_all_combos.txt")
     with open(output_file, "w") as f:
         for pair in pairs:
             f.write(f"{pair}\n")
