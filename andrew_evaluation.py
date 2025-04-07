@@ -58,6 +58,7 @@ def evaluate_model(image_pairs, dataset_path):
         landmarks2 = pose_dict.get(img2_path)
 
         if landmarks1 is None or landmarks2 is None:
+            print(f"⚠️ Skipped pair due to missing landmarks: {img1_path}, {img2_path}")
             skipped_files += 1
             continue
 
@@ -88,9 +89,14 @@ def evaluate_model(image_pairs, dataset_path):
 
     total_time = time.time() - start_time
     print(f"✅ Finished processing all image pairs. Total time: {total_time/60:.2f} minutes.")
-    print("🚦 Starting t-SNE visualization...")
 
+    if not all_embeddings:
+        print("❌ No valid embeddings were generated. Exiting early.")
+        return None, None, None
+
+    print("🚦 Starting t-SNE visualization...")
     all_embeddings = np.vstack(all_embeddings)
+
 
     # Sample a smaller subset for t-SNE
     sample_size = min(10000, len(all_embeddings))
