@@ -11,6 +11,7 @@ from scipy.spatial.distance import cdist
 from tqdm import tqdm  # Progress bar
 from concurrent.futures import ProcessPoolExecutor  # For multiprocessing
 from train_triplets import PoseEmbeddingNet  # Import your model definition file
+import time  # For timing the process
 
 # Initialize MediaPipe Pose
 mp_pose = mp.solutions.pose
@@ -39,6 +40,7 @@ def batch_extract_landmarks(image_paths):
         return list(executor.map(extract_pose_landmarks, image_paths))
 
 def evaluate_model(image_pairs, dataset_path):
+    start_time = time.time()  # Start timing
     dataset_name = os.path.basename(dataset_path.rstrip("/\\"))
     true_labels = []
     predicted_scores = []
@@ -55,7 +57,8 @@ def evaluate_model(image_pairs, dataset_path):
     # Extract landmarks in parallel
     pose_dict = dict(zip(all_img_paths, batch_extract_landmarks(all_img_paths)))
 
-    for img1_path, img2_path, label in tqdm(image_pairs, desc="Evaluating Pairs", unit="pair"):
+    # Track time for processing
+    for idx, (img1_path, img2_path, label) in enumerate(tqdm(image_pairs, desc="Evaluating Pairs", unit="pair")):
         landmarks1 = pose_dict.get(img1_path)
         landmarks2 = pose_dict.get(img2_path)
 
@@ -81,7 +84,17 @@ def evaluate_model(image_pairs, dataset_path):
             else:
                 correct_negative += 1
 
-    print(f"Skipped {skipped_files} files out of {total_files} due to no landmarks detected.")
+        # Estimate completion time after processing 1000 pairs
+        if idx % 1000 == 0 and idx > 0:
+            elapsed_time = time.time() - start_time
+            avg_time_per_pair = elapsed_time / idx
+            remaining_pairs = total_files - idx
+            estimated_time = avg_time_per_pair * remaining_pairs
+            print(f"Processed {idx}/{total_files} pairs. Estimated time remaining: {estimated_time/60:.2f} minutes.")
+
+    # Final time
+    total_time = time.time() - start_time
+    print(f"Total time for processing {total_files} pairs: {total_time/60:.2f} minutes.")
 
     fpr, tpr, thresholds = roc_curve(true_labels, predicted_scores)
     auc_score = auc(fpr, tpr)
@@ -160,7 +173,7 @@ def load_image_pairs(filepath):
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq3")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs.txt")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs_all_combos.txt")
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:
