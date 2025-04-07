@@ -136,13 +136,22 @@ def evaluate_model(image_pairs, dataset_path):
     nn_accuracy = correct_nn / len(all_labels)
     print(f"Nearest Neighbor Accuracy: {nn_accuracy * 100:.2f}%")
 
-    fpr, tpr, thresholds = roc_curve(true_labels, predicted_scores)
+        # Optimize ROC curve computation by binning predicted scores
+    true_labels = np.array(true_labels)
+    predicted_scores = np.array(predicted_scores)
+
+    bins = np.linspace(0, 1, num=200)  # You can try 100 for even faster runs
+    digitized_scores = np.digitize(predicted_scores, bins) / len(bins)
+
+    fpr, tpr, thresholds = roc_curve(true_labels, digitized_scores)
     auc_score = auc(fpr, tpr)
+
 
     print(f"Correctly identified {correct_positive} positive pairs.")
     print(f"Correctly identified {correct_negative} negative pairs.")
-    print(f"Total true positive pairs: {true_labels.count(1)}")
-    print(f"Total true negative pairs: {true_labels.count(0)}")
+    print(f"Total true positive pairs: {np.sum(true_labels == 1)}")
+    print(f"Total true negative pairs: {np.sum(true_labels == 0)}")
+
 
     plt.figure()
     plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
@@ -163,8 +172,8 @@ def evaluate_model(image_pairs, dataset_path):
         f.write(f"Skipped files: {skipped_files}/{total_files}\n")
         f.write(f"Correctly identified positive pairs: {correct_positive}\n")
         f.write(f"Correctly identified negative pairs: {correct_negative}\n")
-        f.write(f"Total true positives: {true_labels.count(1)}\n")
-        f.write(f"Total true negatives: {true_labels.count(0)}\n")
+        f.write(f"Total true positives: {np.sum(true_labels == 1)}\n")
+        f.write(f"Total true negatives: {np.sum(true_labels == 0)}\n")
         f.write(f"AUC Score: {auc_score:.4f}\n")
         f.write(f"Nearest Neighbor Accuracy: {nn_accuracy * 100:.2f}%\n")
 
@@ -186,7 +195,7 @@ def load_image_pairs(filepath):
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq3")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs.txt")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs_all_combos.txt")
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:
