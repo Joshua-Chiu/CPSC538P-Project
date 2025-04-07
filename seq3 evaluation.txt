@@ -1,7 +1,0 @@
-Skipped files: 47/280
-Correctly identified positive pairs: 110
-Correctly identified negative pairs: 28
-Total true positives: 118
-Total true negatives: 115
-AUC Score: 0.6501
-Nearest Neighbor Accuracy: 44.64%

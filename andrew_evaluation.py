@@ -8,10 +8,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from scipy.spatial.distance import cdist
-from tqdm import tqdm  # Progress bar
-from concurrent.futures import ProcessPoolExecutor  # For multiprocessing
-from train_triplets import PoseEmbeddingNet  # Import your model definition file
-import time  # For timing the process
+from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor
+from train_triplets import PoseEmbeddingNet
+import time
 
 # Initialize MediaPipe Pose
 mp_pose = mp.solutions.pose
@@ -35,12 +35,11 @@ def extract_pose_landmarks(image_path):
         return None
 
 def batch_extract_landmarks(image_paths):
-    """Function to process landmarks in parallel using multiprocessing."""
     with ProcessPoolExecutor() as executor:
         return list(executor.map(extract_pose_landmarks, image_paths))
 
 def evaluate_model(image_pairs, dataset_path):
-    start_time = time.time()  # Start timing
+    start_time = time.time()
     dataset_name = os.path.basename(dataset_path.rstrip("/\\"))
     true_labels = []
     predicted_scores = []
@@ -51,13 +50,9 @@ def evaluate_model(image_pairs, dataset_path):
     all_embeddings = []
     all_labels = []
 
-    # Get all unique image paths for landmark extraction
     all_img_paths = list(set([p for pair in image_pairs for p in pair[:2]]))
-    
-    # Extract landmarks in parallel
     pose_dict = dict(zip(all_img_paths, batch_extract_landmarks(all_img_paths)))
 
-    # Track time for processing
     for idx, (img1_path, img2_path, label) in enumerate(tqdm(image_pairs, desc="Evaluating Pairs", unit="pair")):
         landmarks1 = pose_dict.get(img1_path)
         landmarks2 = pose_dict.get(img2_path)
@@ -84,7 +79,6 @@ def evaluate_model(image_pairs, dataset_path):
             else:
                 correct_negative += 1
 
-        # Estimate completion time after processing 1000 pairs
         if idx % 1000 == 0 and idx > 0:
             elapsed_time = time.time() - start_time
             avg_time_per_pair = elapsed_time / idx
@@ -92,9 +86,49 @@ def evaluate_model(image_pairs, dataset_path):
             estimated_time = avg_time_per_pair * remaining_pairs
             print(f"Processed {idx}/{total_files} pairs. Estimated time remaining: {estimated_time/60:.2f} minutes.")
 
-    # Final time
     total_time = time.time() - start_time
-    print(f"Total time for processing {total_files} pairs: {total_time/60:.2f} minutes.")
+    print(f"✅ Finished processing all image pairs. Total time: {total_time/60:.2f} minutes.")
+    print("🚦 Starting t-SNE visualization...")
+
+    all_embeddings = np.vstack(all_embeddings)
+
+    # Sample a smaller subset for t-SNE
+    sample_size = min(10000, len(all_embeddings))
+    indices = np.random.choice(len(all_embeddings), size=sample_size, replace=False)
+    sampled_embeddings = all_embeddings[indices]
+    sampled_labels = [all_labels[i] for i in indices]
+
+    # Estimate ETA for t-SNE
+    print("⏳ Estimating t-SNE time with 100 samples...")
+    tsne_sample = TSNE(n_components=2, random_state=42, perplexity=30)
+    start_tsne_sample = time.time()
+    tsne_sample.fit_transform(sampled_embeddings[:100])
+    end_tsne_sample = time.time()
+    estimated_tsne_time = (end_tsne_sample - start_tsne_sample) * (sample_size / 100)
+    print(f"🕒 Estimated t-SNE time for {sample_size} embeddings: {estimated_tsne_time:.2f} seconds.")
+
+    tsne = TSNE(n_components=2, random_state=42, perplexity=30)
+    tsne_results = tsne.fit_transform(sampled_embeddings)
+
+    print("🌀 t-SNE computation finished. Plotting now...")
+
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=sampled_labels, cmap='coolwarm', alpha=0.7)
+    plt.colorbar(scatter, label='True Label')
+    plt.title('t-SNE Visualization of Pose Embeddings')
+    plt.xlabel('t-SNE component 1')
+    plt.ylabel('t-SNE component 2')
+    tsne_filename = f"{dataset_name} tsne.png"
+    plt.savefig(tsne_filename)
+    print(f"📸 t-SNE plot saved as {tsne_filename}")
+    plt.close()
+
+    dist_matrix = cdist(all_embeddings, all_embeddings, metric='cosine')
+    np.fill_diagonal(dist_matrix, np.inf)
+    nearest_neighbors = np.argmin(dist_matrix, axis=1)
+    correct_nn = sum(1 for i in range(len(all_labels)) if all_labels[i] == all_labels[nearest_neighbors[i]])
+    nn_accuracy = correct_nn / len(all_labels)
+    print(f"Nearest Neighbor Accuracy: {nn_accuracy * 100:.2f}%")
 
     fpr, tpr, thresholds = roc_curve(true_labels, predicted_scores)
     auc_score = auc(fpr, tpr)
@@ -104,32 +138,6 @@ def evaluate_model(image_pairs, dataset_path):
     print(f"Total true positive pairs: {true_labels.count(1)}")
     print(f"Total true negative pairs: {true_labels.count(0)}")
 
-    all_embeddings = np.vstack(all_embeddings)
-    tsne = TSNE(n_components=2, random_state=42)
-    tsne_results = tsne.fit_transform(all_embeddings)
-
-    # Save t-SNE plot
-    plt.figure(figsize=(8, 6))
-    scatter = plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=all_labels, cmap='coolwarm', alpha=0.7)
-    plt.colorbar(scatter, label='True Label')
-    plt.title('t-SNE Visualization of Pose Embeddings')
-    plt.xlabel('t-SNE component 1')
-    plt.ylabel('t-SNE component 2')
-    tsne_filename = f"{dataset_name} tsne.png"
-    plt.savefig(tsne_filename)
-    print(f"t-SNE plot saved as {tsne_filename}")
-    plt.close()
-
-    # Nearest Neighbor Accuracy
-    dist_matrix = cdist(all_embeddings, all_embeddings, metric='cosine')
-    np.fill_diagonal(dist_matrix, np.inf)
-    nearest_neighbors = np.argmin(dist_matrix, axis=1)
-
-    correct_nn = sum(1 for i in range(len(all_labels)) if all_labels[i] == all_labels[nearest_neighbors[i]])
-    nn_accuracy = correct_nn / len(all_labels)
-    print(f"Nearest Neighbor Accuracy: {nn_accuracy * 100:.2f}%")
-
-    # Save ROC curve
     plt.figure()
     plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
@@ -141,10 +149,9 @@ def evaluate_model(image_pairs, dataset_path):
     plt.legend(loc='lower right')
     roc_filename = f"{dataset_name} roc.png"
     plt.savefig(roc_filename)
-    print(f"ROC curve saved as {roc_filename}")
+    print(f"📈 ROC curve saved as {roc_filename}")
     plt.close()
 
-    # Save summary to text file
     summary_filename = f"{dataset_name} evaluation.txt"
     with open(summary_filename, "w") as f:
         f.write(f"Skipped files: {skipped_files}/{total_files}\n")
@@ -155,7 +162,7 @@ def evaluate_model(image_pairs, dataset_path):
         f.write(f"AUC Score: {auc_score:.4f}\n")
         f.write(f"Nearest Neighbor Accuracy: {nn_accuracy * 100:.2f}%\n")
 
-    print(f"Evaluation summary saved as {summary_filename}")
+    print(f"📄 Evaluation summary saved as {summary_filename}")
 
     return fpr, tpr, auc_score
 
@@ -173,7 +180,7 @@ def load_image_pairs(filepath):
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq3")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs_all_combos.txt")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs.txt")
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:
