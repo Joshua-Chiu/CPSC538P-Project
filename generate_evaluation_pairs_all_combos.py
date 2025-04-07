@@ -4,7 +4,7 @@ from itertools import combinations
 from collections import defaultdict
 import cv2
 
-def create_image_pairs(dataset_path, max_positive_pairs_per_id=5, num_negative_pairs_per_id=5):
+def create_image_pairs(dataset_path):
     person_to_images = defaultdict(list)
 
     # Group images by person ID (prefix before the first underscore)
@@ -20,36 +20,33 @@ def create_image_pairs(dataset_path, max_positive_pairs_per_id=5, num_negative_p
     total_positive = 0
     total_negative = 0
 
-    # Generate positive pairs
+    # Generate all positive pairs
     for person_id, images in person_to_images.items():
         if len(images) < 2:
             continue  # Can't form pairs with fewer than 2 images
 
         all_pos_combinations = list(combinations(images, 2))
-        random.shuffle(all_pos_combinations)
+        total_positive += len(all_pos_combinations)
 
-        num_to_sample = min(max_positive_pairs_per_id, len(all_pos_combinations))
-        selected_pairs = all_pos_combinations[:num_to_sample]
-
-        for img1, img2 in selected_pairs:
+        for img1, img2 in all_pos_combinations:
             image_pairs.append((img1, img2, 1))
             positive_pairs_count[person_id] += 1  # Count positive pairs for the person
-            total_positive += 1
 
-    # Generate negative pairs
+    # Generate negative pairs to match the total number of positive pairs
     person_ids = list(person_to_images.keys())
-    for person_id in person_to_images:
-        for _ in range(num_negative_pairs_per_id):
-            if len(person_to_images[person_id]) == 0:
-                continue
+    while total_negative < total_positive:
+        person_id = random.choice(person_ids)
+        if len(person_to_images[person_id]) < 1:
+            continue
 
-            other_id = random.choice([pid for pid in person_ids if pid != person_id and len(person_to_images[pid]) > 0])
-            img1 = random.choice(person_to_images[person_id])
-            img2 = random.choice(person_to_images[other_id])
+        # Pick a random other person who has at least one image
+        other_id = random.choice([pid for pid in person_ids if pid != person_id and len(person_to_images[pid]) > 0])
+        img1 = random.choice(person_to_images[person_id])
+        img2 = random.choice(person_to_images[other_id])
 
-            image_pairs.append((img1, img2, 0))
-            negative_pairs_count[person_id] += 1  # Count negative pairs for the person
-            total_negative += 1
+        image_pairs.append((img1, img2, 0))
+        negative_pairs_count[person_id] += 1  # Count negative pairs for the person
+        total_negative += 1
 
     random.shuffle(image_pairs)
 
@@ -76,9 +73,7 @@ if __name__ == "__main__":
 
     # Generate the pairs
     pairs = create_image_pairs(
-        dataset_path,
-        max_positive_pairs_per_id=5,
-        num_negative_pairs_per_id=5
+        dataset_path
     )
 
     # Save output file in the same directory
@@ -92,5 +87,4 @@ if __name__ == "__main__":
     labels = [label for _, _, label in pairs]
     print(f"\nUnique labels in generated pairs: {set(labels)}")
     for i in range(min(10, len(pairs))):
-        print(pairs[i])
-
+        print(pairs[i]) 
