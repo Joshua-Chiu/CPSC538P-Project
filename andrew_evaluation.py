@@ -160,7 +160,7 @@ def load_image_pairs(filepath):
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq3")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs.txt")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs_all_combos.txt")
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:
