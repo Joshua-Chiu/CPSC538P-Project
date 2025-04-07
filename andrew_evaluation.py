@@ -15,7 +15,7 @@ pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 # Load the pre-trained pose embedding model
 pose_embedding_model = PoseEmbeddingNet(input_size=99, embedding_size=128)  # Adjust according to your model
-pose_embedding_model.load_state_dict(torch.load('pose_embedding_model.pth', weights_only=True))
+pose_embedding_model.load_state_dict(torch.load('pose_embedding_model_fine_tuned.pth', weights_only=True))
 pose_embedding_model.eval()  # Set the model to evaluation mode
 
 # Function to extract pose landmarks from an image

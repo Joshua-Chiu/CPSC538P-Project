@@ -9,7 +9,7 @@ def create_image_pairs(dataset_path, max_positive_pairs_per_id=5, num_negative_p
 
     # Group images by person ID (prefix before the first underscore)
     for filename in os.listdir(dataset_path):
-        if filename.endswith(".jpg"):  # Adjusted for JPG files as per your dataset
+        if filename.endswith(".png"):  # Adjusted for PNG files as per your dataset
             person_id = filename.split("_")[0]
             image_path = os.path.join(dataset_path, filename)
             person_to_images[person_id].append(image_path)
@@ -68,28 +68,29 @@ def create_image_pairs(dataset_path, max_positive_pairs_per_id=5, num_negative_p
 
 # Example usage
 if __name__ == "__main__":
-    # Get the path to the current file
-    current_dir = os.path.dirname(__file__)
-    dataset_path = os.path.join(current_dir, "entireid", "bounding_box_test_small")
+    # Path to the directory where the script is located
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Build the dataset path relative to this script
+    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq1")
 
     # Generate the pairs
     pairs = create_image_pairs(
         dataset_path,
-        max_positive_pairs_per_id=3,  # Adjustable
-        num_negative_pairs_per_id=3   # Adjustable
+        max_positive_pairs_per_id=5,
+        num_negative_pairs_per_id=5
     )
 
-    # Save pairs to a txt file
-    output_file = "evaluation_pairs.txt"
+    # Save output file in the same directory
+    output_file = os.path.join(current_dir, "evaluation_pairs.txt")
     with open(output_file, "w") as f:
         for pair in pairs:
             f.write(f"{pair}\n")
-    print(f"Evaluation pairs saved to {output_file}")
+    print(f"✅ Evaluation pairs saved to {output_file}")
 
-    # Debug: Print unique labels
+    # Print a few debug details
     labels = [label for _, _, label in pairs]
     print(f"\nUnique labels in generated pairs: {set(labels)}")
-
-    # Print sample pairs for debugging
     for i in range(min(10, len(pairs))):
         print(pairs[i])
+
