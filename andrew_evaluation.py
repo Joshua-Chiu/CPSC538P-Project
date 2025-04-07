@@ -200,8 +200,13 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
+<<<<<<< HEAD
     dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq2")
     pairs_path = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_seq2.txt")
+=======
+    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq3")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs_all_combos.txt")
+>>>>>>> 1b159ebe1 (test)
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:
