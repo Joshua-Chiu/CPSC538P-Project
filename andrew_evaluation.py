@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from scipy.spatial.distance import cdist
+from tqdm import tqdm  # Progress bar
 from train_triplets import PoseEmbeddingNet  # Import your model definition file
 
 # Initialize MediaPipe Pose
@@ -22,7 +23,6 @@ pose_embedding_model.eval()
 def extract_pose_landmarks(image_path):
     image = cv2.imread(image_path)
     if image is None:
-        print(f"Error loading image: {image_path}")
         return None
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     results = pose.process(image_rgb)
@@ -30,7 +30,6 @@ def extract_pose_landmarks(image_path):
         landmarks = [[lm.x, lm.y, lm.z] for lm in results.pose_landmarks.landmark]
         return torch.tensor(landmarks).flatten()
     else:
-        print(f"No pose landmarks detected in {image_path}")
         return None
 
 def evaluate_model(image_pairs, dataset_path):
@@ -44,8 +43,7 @@ def evaluate_model(image_pairs, dataset_path):
     all_embeddings = []
     all_labels = []
 
-    for img1_path, img2_path, label in image_pairs:
-        print(f"Processing: {img1_path} and {img2_path}")
+    for img1_path, img2_path, label in tqdm(image_pairs, desc="Evaluating Pairs", unit="pair"):
         landmarks1 = extract_pose_landmarks(img1_path)
         landmarks2 = extract_pose_landmarks(img2_path)
 
