@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from scipy.spatial.distance import cdist
 from tqdm import tqdm  # Progress bar
+from concurrent.futures import ProcessPoolExecutor  # For multiprocessing
 from train_triplets import PoseEmbeddingNet  # Import your model definition file
 
 # Initialize MediaPipe Pose
@@ -32,6 +33,11 @@ def extract_pose_landmarks(image_path):
     else:
         return None
 
+def batch_extract_landmarks(image_paths):
+    """Function to process landmarks in parallel using multiprocessing."""
+    with ProcessPoolExecutor() as executor:
+        return list(executor.map(extract_pose_landmarks, image_paths))
+
 def evaluate_model(image_pairs, dataset_path):
     dataset_name = os.path.basename(dataset_path.rstrip("/\\"))
     true_labels = []
@@ -43,9 +49,15 @@ def evaluate_model(image_pairs, dataset_path):
     all_embeddings = []
     all_labels = []
 
+    # Get all unique image paths for landmark extraction
+    all_img_paths = list(set([p for pair in image_pairs for p in pair[:2]]))
+    
+    # Extract landmarks in parallel
+    pose_dict = dict(zip(all_img_paths, batch_extract_landmarks(all_img_paths)))
+
     for img1_path, img2_path, label in tqdm(image_pairs, desc="Evaluating Pairs", unit="pair"):
-        landmarks1 = extract_pose_landmarks(img1_path)
-        landmarks2 = extract_pose_landmarks(img2_path)
+        landmarks1 = pose_dict.get(img1_path)
+        landmarks2 = pose_dict.get(img2_path)
 
         if landmarks1 is None or landmarks2 is None:
             skipped_files += 1
