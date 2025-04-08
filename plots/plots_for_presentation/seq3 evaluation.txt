@@ -1,7 +1,7 @@
-Skipped files: 35804/301650
-Correctly identified positive pairs: 110244
-Correctly identified negative pairs: 14277
-Total true positives (ground truth positives): 135998
-Total true negatives (ground truth negatives): 129848
-AUC Score: 0.4543
-Average Nearest Neighbor Score: 0.2238
+Skipped files: 30106/301650
+Correctly identified positive pairs: 111932
+Correctly identified negative pairs: 75787
+Total true positives (ground truth positives): 138973
+Total true negatives (ground truth negatives): 132571
+AUC Score: 0.7237
+Average Nearest Neighbor Score: 0.4907
