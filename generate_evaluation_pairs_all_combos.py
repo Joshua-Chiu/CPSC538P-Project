@@ -69,7 +69,7 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Build the dataset path relative to this script
-    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq1")
+    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq2")
 
     # Generate the pairs
     pairs = create_image_pairs(
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     )
 
     # Save output file in the same directory
-    output_file = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_seq1.txt")
+    output_file = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_seq2.txt")
     with open(output_file, "w") as f:
         for pair in pairs:
             f.write(f"{pair}\n")
