@@ -1,0 +1,6 @@
+Skipped files: 31843/301650
+Correctly identified positive pairs: 110430
+Correctly identified negative pairs: 29107
+Total true positives: 137955
+Total true negatives: 131852
+AUC Score: 0.6455
