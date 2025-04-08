@@ -119,7 +119,7 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
 
     if not all_embeddings:
         print("❌ No valid embeddings were generated. Exiting early.")
-        return None, None, None
+        return None, None, None, None
 
     # t-SNE visualization
     print("🚦 Starting t-SNE visualization...")
@@ -197,6 +197,7 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
 
     return fpr, tpr, auc_score, avg_nn_score
 
+
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     dataset_path = os.path.join(current_dir, "entireid", "bounding_box_test")
@@ -207,5 +208,7 @@ if __name__ == "__main__":
         print("❌ No image pairs loaded. Please check the file path and contents.")
         exit()
 
-        fpr, tpr, auc_score, avg_nn_score = evaluate_model(image_pairs, dataset_path)
+# Now call the evaluate_model function after the check
+    fpr, tpr, auc_score, avg_nn_score = evaluate_model(image_pairs, dataset_path)  # This will now be executed
     print(f"AUC Score: {auc_score}")
+

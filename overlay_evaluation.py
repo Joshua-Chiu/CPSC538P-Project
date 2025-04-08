@@ -72,7 +72,7 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000, is_training=True)
         landmarks2 = pose_dict.get(img2path)
 
         if landmarks1 is None or landmarks2 is None:
-            print(f"⚠️ Skipped pair due to missing landmarks: {img1path}, {img2path}")
+            # print(f"⚠️ Skipped pair due to missing landmarks: {img1path}, {img2path}")
             skipped_files += 1
             continue
 
@@ -190,10 +190,21 @@ if __name__ == "__main__":
     fpr_train, tpr_train, auc_score_train = evaluate_model(image_pairs_train, dataset_path_train, is_training=True)
     fpr_test, tpr_test, auc_score_test = evaluate_model(image_pairs_test, dataset_path_test, is_training=False)
 
+    # Check for None values before plotting
+    if fpr_train is None or tpr_train is None or auc_score_train is None:
+        print("❌ Training data evaluation failed. Skipping training ROC curve.")
+        fpr_train, tpr_train, auc_score_train = [], [], 0.0
+
+    if fpr_test is None or tpr_test is None or auc_score_test is None:
+        print("❌ Testing data evaluation failed. Skipping testing ROC curve.")
+        fpr_test, tpr_test, auc_score_test = [], [], 0.0
+
     # Plot both ROC curves on the same plot
     plt.figure(figsize=(8, 6))
-    plt.plot(fpr_train, tpr_train, color='blue', lw=2, label=f'Training ROC curve (AUC = {auc_score_train:.2f})')
-    plt.plot(fpr_test, tpr_test, color='red', lw=2, label=f'Testing ROC curve (AUC = {auc_score_test:.2f})')
+    if fpr_train and tpr_train:
+        plt.plot(fpr_train, tpr_train, color='blue', lw=2, label=f'Training ROC curve (AUC = {auc_score_train:.2f})')
+    if fpr_test and tpr_test:
+        plt.plot(fpr_test, tpr_test, color='red', lw=2, label=f'Testing ROC curve (AUC = {auc_score_test:.2f})')
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
@@ -205,5 +216,5 @@ if __name__ == "__main__":
     print(f"📈 ROC curves saved as roc_curves.png")
     plt.close()
 
-    print(f"AUC Score (Training): {auc_score_train}")
-    print(f"AUC Score (Testing): {auc_score_test}")
+    print(f"AUC Score (Training): {auc_score_train:.4f}")
+    print(f"AUC Score (Testing): {auc_score_test:.4f}")
