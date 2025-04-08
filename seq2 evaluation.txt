@@ -1,0 +1,15 @@
+<<<<<<< HEAD
+Skipped files: 73011/152460
+Correctly identified positive pairs: 33611
+Correctly identified negative pairs: 15974
+Total true positives (ground truth positives): 39683
+Total true negatives (ground truth negatives): 39766
+AUC Score: 0.7096
+=======
+Skipped files: 80800/152460
+Correctly identified positive pairs: 30918
+Correctly identified negative pairs: 14150
+Total true positives: 36538
+Total true negatives: 35122
+AUC Score: 0.7120
+>>>>>>> f850d631becb0b515cee32c843b9455ee05d95d8
