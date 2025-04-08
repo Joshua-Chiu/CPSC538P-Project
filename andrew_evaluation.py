@@ -38,6 +38,17 @@ def batch_extract_landmarks(image_paths):
     with ProcessPoolExecutor() as executor:
         return list(executor.map(extract_pose_landmarks, image_paths))
 
+def load_image_pairs(filepath):
+    pairs = []
+    with open(filepath, 'r') as f:
+        for line in f:
+            try:
+                img1, img2, label = ast.literal_eval(line.strip())
+                pairs.append((img1.strip(), img2.strip(), int(label)))
+            except (ValueError, SyntaxError):
+                print(f"⚠️ Skipping malformed line: {line.strip()}")
+    return pairs
+
 def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     start_time = time.time()
     dataset_name = os.path.basename(dataset_path.rstrip("/\\"))
@@ -47,9 +58,12 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     total_files = len(image_pairs)
     correct_positive = 0
     correct_negative = 0
+    total_true_positives = 0  # For counting ground truth positives
+    total_true_negatives = 0  # For counting ground truth negatives
     all_embeddings = []
     all_labels = []
 
+    # Extract landmarks for all images in pairs
     all_img_paths = list(set([p for pair in image_pairs for p in pair[:2]]))
     pose_dict = dict(zip(all_img_paths, batch_extract_landmarks(all_img_paths)))
 
@@ -74,10 +88,20 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
         true_labels.append(label)
         predicted_scores.append(similarity.item())
 
-        if (similarity.item() > 0.5 and label == 1) or (similarity.item() <= 0.5 and label == 0):
-            if label == 1:
+        # Calculate the total number of true positive pairs (ground truth label == 1)
+        if label == 1:  # If the ground truth label is 1 (same person)
+            total_true_positives += 1
+        
+        # Calculate the total number of true negative pairs (ground truth label == 0)
+        if label == 0:  # If the ground truth label is 0 (different person)
+            total_true_negatives += 1
+
+        # Model Prediction for True Positive (TP) and True Negative (TN) Calculation
+        if similarity.item() > 0.5:  # Predicted as same person
+            if label == 1:  # Correctly predicted same person
                 correct_positive += 1
-            else:
+        else:  # Predicted as different person
+            if label == 0:  # Correctly predicted different person
                 correct_negative += 1
 
         if idx % 1000 == 0 and idx > 0:
@@ -144,8 +168,8 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
 
     print(f"Correctly identified {correct_positive} positive pairs.")
     print(f"Correctly identified {correct_negative} negative pairs.")
-    print(f"Total true positive pairs: {np.sum(true_labels == 1)}")
-    print(f"Total true negative pairs: {np.sum(true_labels == 0)}")
+    print(f"Total true positives (ground truth positives): {total_true_positives}")
+    print(f"Total true negatives (ground truth negatives): {total_true_negatives}")
 
     # Plotting ROC curve
     plt.figure()
@@ -157,9 +181,8 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC)')
     plt.legend(loc='lower right')
-    roc_filename = f"{dataset_name} roc.png"
-    plt.savefig(roc_filename)
-    print(f"📈 ROC curve saved as {roc_filename}")
+    plt.savefig(f"{dataset_name}_roc.png")
+    print(f"📈 ROC curve saved as {dataset_name}_roc.png")
     plt.close()
 
     summary_filename = f"{dataset_name} evaluation.txt"
@@ -167,29 +190,18 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
         f.write(f"Skipped files: {skipped_files}/{total_files}\n")
         f.write(f"Correctly identified positive pairs: {correct_positive}\n")
         f.write(f"Correctly identified negative pairs: {correct_negative}\n")
-        f.write(f"Total true positives: {np.sum(true_labels == 1)}\n")
-        f.write(f"Total true negatives: {np.sum(true_labels == 0)}\n")
+        f.write(f"Total true positives (ground truth positives): {total_true_positives}\n")
+        f.write(f"Total true negatives (ground truth negatives): {total_true_negatives}\n")
         f.write(f"AUC Score: {auc_score:.4f}\n")
 
     print(f"📄 Evaluation summary saved as {summary_filename}")
 
     return fpr, tpr, auc_score
 
-def load_image_pairs(filepath):
-    pairs = []
-    with open(filepath, 'r') as f:
-        for line in f:
-            try:
-                img1, img2, label = ast.literal_eval(line.strip())
-                pairs.append((img1.strip(), img2.strip(), int(label)))
-            except (ValueError, SyntaxError):
-                print(f"⚠️ Skipping malformed line: {line.strip()}")
-    return pairs
-
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq3")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs_all_combos.txt")
+    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq2")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_seq2.txt")
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:
