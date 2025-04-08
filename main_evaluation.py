@@ -7,10 +7,11 @@ from sklearn.metrics import roc_curve, auc
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+from sklearn.metrics import pairwise_distances
 from scipy.spatial.distance import cdist
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
-from train_triplets import PoseEmbeddingNet
+from train_triplets_fine_tune import PoseEmbeddingNet
 import time
 
 # Initialize MediaPipe Pose
@@ -54,12 +55,13 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     dataset_name = os.path.basename(dataset_path.rstrip("/\\"))
     true_labels = []
     predicted_scores = []
+    nearest_neighbor_scores = []  # Add list for nearest neighbor scores
     skipped_files = 0
     total_files = len(image_pairs)
     correct_positive = 0
     correct_negative = 0
-    total_true_positives = 0  # For counting ground truth positives
-    total_true_negatives = 0  # For counting ground truth negatives
+    total_true_positives = 0
+    total_true_negatives = 0
     all_embeddings = []
     all_labels = []
 
@@ -72,7 +74,6 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
         landmarks2 = pose_dict.get(img2_path)
 
         if landmarks1 is None or landmarks2 is None:
-            print(f"⚠️ Skipped pair due to missing landmarks: {img1_path}, {img2_path}")
             skipped_files += 1
             continue
 
@@ -84,24 +85,26 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
         all_labels.append(label)
         all_labels.append(label)
 
+        # Cosine similarity
         similarity = torch.nn.functional.cosine_similarity(embedding1, embedding2)
         true_labels.append(label)
         predicted_scores.append(similarity.item())
 
-        # Calculate the total number of true positive pairs (ground truth label == 1)
-        if label == 1:  # If the ground truth label is 1 (same person)
+        # Nearest Neighbor Score (Euclidean distance between embeddings)
+        nn_score = pairwise_distances(embedding1.detach().numpy(), embedding2.detach().numpy(), metric='cosine')[0][0]
+        nearest_neighbor_scores.append(nn_score)  # Store nearest neighbor score
+
+        # Calculate true positive/negative based on predicted similarity
+        if label == 1:  # True positive
             total_true_positives += 1
-        
-        # Calculate the total number of true negative pairs (ground truth label == 0)
-        if label == 0:  # If the ground truth label is 0 (different person)
+        if label == 0:  # True negative
             total_true_negatives += 1
 
-        # Model Prediction for True Positive (TP) and True Negative (TN) Calculation
-        if similarity.item() > 0.5:  # Predicted as same person
-            if label == 1:  # Correctly predicted same person
+        if similarity.item() > 0.5:  # Predicted same person
+            if label == 1:
                 correct_positive += 1
-        else:  # Predicted as different person
-            if label == 0:  # Correctly predicted different person
+        else:  # Predicted different person
+            if label == 0:
                 correct_negative += 1
 
         if idx % 1000 == 0 and idx > 0:
@@ -120,17 +123,13 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
 
     # t-SNE visualization
     print("🚦 Starting t-SNE visualization...")
-
     all_embeddings = np.vstack(all_embeddings)
 
-    # Sample a smaller subset for t-SNE
     sample_size = min(10000, len(all_embeddings))
     indices = np.random.choice(len(all_embeddings), size=sample_size, replace=False)
     sampled_embeddings = all_embeddings[indices]
     sampled_labels = [all_labels[i] for i in indices]
 
-    # Estimate ETA for t-SNE
-    print("⏳ Estimating t-SNE time with 100 samples...")
     tsne_sample = TSNE(n_components=2, random_state=42, perplexity=30)
     start_tsne_sample = time.time()
     tsne_sample.fit_transform(sampled_embeddings[:100])
@@ -140,8 +139,6 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
 
     tsne = TSNE(n_components=2, random_state=42, perplexity=30)
     tsne_results = tsne.fit_transform(sampled_embeddings)
-
-    print("🌀 t-SNE computation finished. Plotting now...")
 
     plt.figure(figsize=(8, 6))
     scatter = plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=sampled_labels, cmap='coolwarm', alpha=0.7)
@@ -158,11 +155,9 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     true_labels = np.array(true_labels)
     predicted_scores = np.array(predicted_scores)
 
-    # Binning the predicted scores for faster ROC computation
-    bins = np.linspace(0, 1, num=200)  # You can try 100 for even faster runs
+    bins = np.linspace(0, 1, num=200)
     digitized_scores = np.digitize(predicted_scores, bins) / len(bins)
 
-    # ROC curve computation
     fpr, tpr, thresholds = roc_curve(true_labels, digitized_scores)
     auc_score = auc(fpr, tpr)
 
@@ -171,7 +166,6 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     print(f"Total true positives (ground truth positives): {total_true_positives}")
     print(f"Total true negatives (ground truth negatives): {total_true_negatives}")
 
-    # Plotting ROC curve
     plt.figure()
     plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
@@ -185,6 +179,10 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     print(f"📈 ROC curve saved as {dataset_name}_roc.png")
     plt.close()
 
+    # Nearest Neighbor Score
+    avg_nn_score = np.mean(nearest_neighbor_scores)
+    print(f"Average Nearest Neighbor Score (Cosine Distance): {avg_nn_score:.4f}")
+
     summary_filename = f"{dataset_name} evaluation.txt"
     with open(summary_filename, "w") as f:
         f.write(f"Skipped files: {skipped_files}/{total_files}\n")
@@ -193,20 +191,21 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
         f.write(f"Total true positives (ground truth positives): {total_true_positives}\n")
         f.write(f"Total true negatives (ground truth negatives): {total_true_negatives}\n")
         f.write(f"AUC Score: {auc_score:.4f}\n")
+        f.write(f"Average Nearest Neighbor Score: {avg_nn_score:.4f}\n")  # Log the nearest neighbor score
 
     print(f"📄 Evaluation summary saved as {summary_filename}")
 
-    return fpr, tpr, auc_score
+    return fpr, tpr, auc_score, avg_nn_score
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq2")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_seq2.txt")
+    dataset_path = os.path.join(current_dir, "entireid", "bounding_box_test")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_bounding_box_test.txt")
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:
         print("❌ No image pairs loaded. Please check the file path and contents.")
         exit()
 
-    fpr, tpr, auc_score = evaluate_model(image_pairs, dataset_path)
+        fpr, tpr, auc_score, avg_nn_score = evaluate_model(image_pairs, dataset_path)
     print(f"AUC Score: {auc_score}")
