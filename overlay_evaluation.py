@@ -49,7 +49,7 @@ def load_image_pairs(filepath):
                 print(f"⚠️ Skipping malformed line: {line.strip()}")
     return pairs
 
-def evaluate_model(image_pairs, dataset_path, batch_size=5000):
+def evaluate_model(image_pairs, dataset_path, batch_size=5000, is_training=True):
     start_time = time.time()
     dataset_name = os.path.basename(dataset_path.rstrip("/\\"))
     true_labels = []
@@ -64,15 +64,15 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     all_labels = []
 
     # Extract landmarks for all images in pairs
-    all_img_paths = list(set([p for pair in image_pairs for p in pair[:2]]))
-    pose_dict = dict(zip(all_img_paths, batch_extract_landmarks(all_img_paths)))
+    all_imgpaths = list(set([p for pair in image_pairs for p in pair[:2]]))
+    pose_dict = dict(zip(all_imgpaths, batch_extract_landmarks(all_imgpaths)))
 
-    for idx, (img1_path, img2_path, label) in enumerate(tqdm(image_pairs, desc="Evaluating Pairs", unit="pair")):
-        landmarks1 = pose_dict.get(img1_path)
-        landmarks2 = pose_dict.get(img2_path)
+    for idx, (img1path, img2path, label) in enumerate(tqdm(image_pairs, desc="Evaluating Pairs", unit="pair")):
+        landmarks1 = pose_dict.get(img1path)
+        landmarks2 = pose_dict.get(img2path)
 
         if landmarks1 is None or landmarks2 is None:
-            print(f"⚠️ Skipped pair due to missing landmarks: {img1_path}, {img2_path}")
+            print(f"⚠️ Skipped pair due to missing landmarks: {img1path}, {img2path}")
             skipped_files += 1
             continue
 
@@ -135,7 +135,7 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     start_tsne_sample = time.time()
     tsne_sample.fit_transform(sampled_embeddings[:100])
     end_tsne_sample = time.time()
-    estimated_tsne_time = (end_tsne_sample - start_tsne_sample) * (sample_size / 100)
+    estimated_tsne_time = (end_tsne_sample - start_tsne_sample) * (sample_size /100)
     print(f"🕒 Estimated t-SNE time for {sample_size} embeddings: {estimated_tsne_time:.2f} seconds.")
 
     tsne = TSNE(n_components=2, random_state=42, perplexity=30)
@@ -149,7 +149,7 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     plt.title('t-SNE Visualization of Pose Embeddings')
     plt.xlabel('t-SNE component 1')
     plt.ylabel('t-SNE component 2')
-    tsne_filename = f"{dataset_name} tsne.png"
+    tsne_filename = f"{dataset_name}_tsne.png"
     plt.savefig(tsne_filename)
     print(f"📸 t-SNE plot saved as {tsne_filename}")
     plt.close()
@@ -171,9 +171,29 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     print(f"Total true positives (ground truth positives): {total_true_positives}")
     print(f"Total true negatives (ground truth negatives): {total_true_negatives}")
 
-    # Plotting ROC curve
-    plt.figure()
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
+    return fpr, tpr, auc_score
+
+if __name__ == "__main__":
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    dataset_path_train = os.path.join(current_dir, "entireid", "bounding_box_test")
+    dataset_path_test = os.path.join(current_dir, "dataset_ETHZ", "seq2")
+    pairs_path_train = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_bounding_box_test.txt")
+    pairs_path_test = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_seq2.txt")
+
+    image_pairs_train = load_image_pairs(pairs_path_train)
+    image_pairs_test = load_image_pairs(pairs_path_test)
+
+    if not image_pairs_train or not image_pairs_test:
+        print("❌ No image pairs loaded. Please check the file path and contents.")
+        exit()
+
+    fpr_train, tpr_train, auc_score_train = evaluate_model(image_pairs_train, dataset_path_train, is_training=True)
+    fpr_test, tpr_test, auc_score_test = evaluate_model(image_pairs_test, dataset_path_test, is_training=False)
+
+    # Plot both ROC curves on the same plot
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr_train, tpr_train, color='blue', lw=2, label=f'Training ROC curve (AUC = {auc_score_train:.2f})')
+    plt.plot(fpr_test, tpr_test, color='red', lw=2, label=f'Testing ROC curve (AUC = {auc_score_test:.2f})')
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
@@ -181,32 +201,9 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC)')
     plt.legend(loc='lower right')
-    plt.savefig(f"{dataset_name}_roc.png")
-    print(f"📈 ROC curve saved as {dataset_name}_roc.png")
+    plt.savefig('roc_curves.png')
+    print(f"📈 ROC curves saved as roc_curves.png")
     plt.close()
 
-    summary_filename = f"{dataset_name} evaluation.txt"
-    with open(summary_filename, "w") as f:
-        f.write(f"Skipped files: {skipped_files}/{total_files}\n")
-        f.write(f"Correctly identified positive pairs: {correct_positive}\n")
-        f.write(f"Correctly identified negative pairs: {correct_negative}\n")
-        f.write(f"Total true positives (ground truth positives): {total_true_positives}\n")
-        f.write(f"Total true negatives (ground truth negatives): {total_true_negatives}\n")
-        f.write(f"AUC Score: {auc_score:.4f}\n")
-
-    print(f"📄 Evaluation summary saved as {summary_filename}")
-
-    return fpr, tpr, auc_score
-
-if __name__ == "__main__":
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq2")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_seq2.txt")
-
-    image_pairs = load_image_pairs(pairs_path)
-    if not image_pairs:
-        print("❌ No image pairs loaded. Please check the file path and contents.")
-        exit()
-
-    fpr, tpr, auc_score = evaluate_model(image_pairs, dataset_path)
-    print(f"AUC Score: {auc_score}")
+    print(f"AUC Score (Training): {auc_score_train}")
+    print(f"AUC Score (Testing): {auc_score_test}")
