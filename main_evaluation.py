@@ -11,7 +11,7 @@ from sklearn.metrics import pairwise_distances
 from scipy.spatial.distance import cdist
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
-from train_triplets_fine_tune import PoseEmbeddingNet
+from train_triplets import PoseEmbeddingNet
 import time
 
 # Initialize MediaPipe Pose
@@ -20,7 +20,7 @@ pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 # Load the pre-trained pose embedding model
 pose_embedding_model = PoseEmbeddingNet(input_size=99, embedding_size=128)
-pose_embedding_model.load_state_dict(torch.load('pose_embedding_model_fine_tuned.pth', weights_only=True))
+pose_embedding_model.load_state_dict(torch.load('pose_embedding_model.pth', weights_only=True))
 pose_embedding_model.eval()
 
 def extract_pose_landmarks(image_path):
@@ -200,8 +200,8 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    dataset_path = os.path.join(current_dir, "entireid", "bounding_box_test")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_bounding_box_test.txt")
+    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq2")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_seq2.txt")
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:
@@ -211,4 +211,3 @@ if __name__ == "__main__":
 # Now call the evaluate_model function after the check
     fpr, tpr, auc_score, avg_nn_score = evaluate_model(image_pairs, dataset_path)  # This will now be executed
     print(f"AUC Score: {auc_score}")
-

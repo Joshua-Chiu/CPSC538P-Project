@@ -3,29 +3,24 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
-# Step 1: Load triplet tensors
-data = torch.load("triplet_tensors.pt")
-anchors = data['anchors']
-positives = data['positives']
-negatives = data['negatives']
-
-# Step 2: Define the Pose Embedding Network
+# Define the Pose Embedding Network
 class PoseEmbeddingNet(nn.Module):
-    def __init__(self, embedding_dim=128):
+    def __init__(self, input_size=99, embedding_size=128):
         super().__init__()
+        self.input_size = input_size  # Use the input size to define the first layer
         self.network = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(33 * 3, 256),
+            nn.Linear(input_size, 256),  # Use input_size as the input dimension
             nn.ReLU(),
             nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Linear(128, embedding_dim)
+            nn.Linear(128, embedding_size)
         )
 
     def forward(self, x):
         return self.network(x)
 
-# Step 3: Define Triplet Loss
+# Define Triplet Loss
 class TripletLoss(nn.Module):
     def __init__(self, margin=1.0):
         super().__init__()
@@ -35,39 +30,51 @@ class TripletLoss(nn.Module):
     def forward(self, anchor, positive, negative):
         return self.loss_fn(anchor, positive, negative)
 
-# Step 4: Prepare Dataloader
-dataset = TensorDataset(anchors, positives, negatives)
-loader = DataLoader(dataset, batch_size=64, shuffle=True)
+# Function to train the model
+def train_model():
+    # Load triplet tensors
+    data = torch.load("triplet_tensors.pt")
+    anchors = data['anchors']
+    positives = data['positives']
+    negatives = data['negatives']
 
-# Step 5: Training Setup
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = PoseEmbeddingNet().to(device)
-loss_fn = TripletLoss(margin=1.0)
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    # Prepare Dataloader
+    dataset = TensorDataset(anchors, positives, negatives)
+    loader = DataLoader(dataset, batch_size=64, shuffle=True)
 
-# Step 6: Training Loop
-epochs = 20
-for epoch in range(epochs):
-    total_loss = 0
-    model.train()
-    for anchor, positive, negative in loader:
-        anchor = anchor.to(device)
-        positive = positive.to(device)
-        negative = negative.to(device)
+    # Setup training
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = PoseEmbeddingNet().to(device)
+    loss_fn = TripletLoss(margin=1.0)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
-        optimizer.zero_grad()
-        emb_anchor = model(anchor)
-        emb_positive = model(positive)
-        emb_negative = model(negative)
+    # Training loop
+    epochs = 20
+    for epoch in range(epochs):
+        total_loss = 0
+        model.train()
+        for anchor, positive, negative in loader:
+            anchor = anchor.to(device)
+            positive = positive.to(device)
+            negative = negative.to(device)
 
-        loss = loss_fn(emb_anchor, emb_positive, emb_negative)
-        loss.backward()
-        optimizer.step()
+            optimizer.zero_grad()
+            emb_anchor = model(anchor)
+            emb_positive = model(positive)
+            emb_negative = model(negative)
 
-        total_loss += loss.item()
+            loss = loss_fn(emb_anchor, emb_positive, emb_negative)
+            loss.backward()
+            optimizer.step()
 
-    print(f"Epoch {epoch+1}/{epochs} - Loss: {total_loss/len(loader):.4f}")
+            total_loss += loss.item()
 
-# Step 7: Save the trained model
-torch.save(model.state_dict(), "pose_embedding_model.pth")
-print("✅ Pose embedding model saved to pose_embedding_model.pth")
+        print(f"Epoch {epoch+1}/{epochs} - Loss: {total_loss/len(loader):.4f}")
+
+    # Save the trained model
+    torch.save(model.state_dict(), "pose_embedding_model.pth")
+    print("✅ Pose embedding model saved to pose_embedding_model.pth")
+
+# Only run the training when the script is executed directly
+if __name__ == "__main__":
+    train_model()
