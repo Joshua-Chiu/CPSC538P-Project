@@ -28,12 +28,16 @@ def load_triplets(file_path):
         positives.append(extract_landmarks(positive_landmarks))
         negatives.append(extract_landmarks(negative_landmarks))
 
+    # Debug: Print how many triplets were processed
+    print(f"🔢 Number of triplets converted to tensors: {len(anchors)}")
+
     # Convert to PyTorch tensors (optimized conversion to avoid slow warnings)
     anchors_tensor = torch.tensor(np.array(anchors), dtype=torch.float32)
     positives_tensor = torch.tensor(np.array(positives), dtype=torch.float32)
     negatives_tensor = torch.tensor(np.array(negatives), dtype=torch.float32)
 
     return anchors_tensor, positives_tensor, negatives_tensor
+
 
 # Load triplets and convert them to tensors
 triplets_file = "triplets.pkl"  # Ensure this file exists in your directory

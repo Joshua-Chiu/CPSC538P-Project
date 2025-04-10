@@ -11,7 +11,7 @@ def load_pose(file_path):
         return pickle.load(f)
 
 # Generate triplets: anchor, positive, negative
-def generate_triplets(dataset_path, output_file="triplets.pkl"):
+def generate_triplets(dataset_path, output_file="triplets.pkl", num_negatives=5):
     triplets = []
     person_images = defaultdict(list)
 
@@ -37,21 +37,21 @@ def generate_triplets(dataset_path, output_file="triplets.pkl"):
             print(f"Skipping {person_id}: not enough images for pairs.")
             continue
 
-        # All unique pairs (i, j) where i ≠ j
         anchor_positive_pairs = list(itertools.combinations(images, 2))
 
         for anchor_path, positive_path in anchor_positive_pairs:
-            # Randomly select a negative individual ≠ current individual
-            negative_person_id = random.choice([pid for pid in person_ids if pid != person_id])
-            negative_path = random.choice(person_images[negative_person_id])
-
-            # Load the poses
             anchor = load_pose(anchor_path)
             positive = load_pose(positive_path)
-            negative = load_pose(negative_path)
 
-            # Store triplet
-            triplets.append((anchor, positive, negative))
+            # Get 5 unique negatives for each anchor-positive pair
+            negative_person_ids = [pid for pid in person_ids if pid != person_id]
+            negative_samples = random.sample(negative_person_ids, min(num_negatives, len(negative_person_ids)))
+
+            for neg_pid in negative_samples:
+                negative_path = random.choice(person_images[neg_pid])
+                negative = load_pose(negative_path)
+
+                triplets.append((anchor, positive, negative))
 
     # Step 3: Save the triplets to a .pkl file
     with open(output_file, "wb") as f:
