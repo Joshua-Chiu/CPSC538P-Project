@@ -1,3 +1,0 @@
-Unique individuals: 0
-Unique label IDs: set()
-Silhouette Score: Not available (need at least 2 clusters).

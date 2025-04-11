@@ -9,7 +9,7 @@ def create_image_pairs(dataset_path):
 
     # Group images by person ID (prefix before the first underscore)
     for filename in os.listdir(dataset_path):
-        if filename.endswith(".png"):  # Adjusted for PNG files as per your dataset
+        if filename.endswith(".jpg"):  # Adjusted for PNG files as per your dataset
             person_id = filename.split("_")[0]
             image_path = os.path.join(dataset_path, filename)
             person_to_images[person_id].append(image_path)
@@ -74,13 +74,13 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Build the dataset path relative to this script
-    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq2")
+    dataset_path = os.path.join(current_dir, "entireid", "bounding_box_test")
 
     # Generate the pairs
     pairs = create_image_pairs(dataset_path)
 
     # Save output file in the same directory
-    output_file = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_seq2.txt")
+    output_file = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_bounding_box_test.txt")
     with open(output_file, "w") as f:
         for pair in pairs:
             f.write(f"{pair}\n")

@@ -132,6 +132,19 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
     tsne_sample = TSNE(n_components=2, random_state=42, perplexity=30)
     tsne_results = tsne_sample.fit_transform(sampled_embeddings)
 
+    # Save t-SNE plot
+    plt.figure(figsize=(10, 8))
+    tsne_results = np.array(tsne_results)
+    sampled_labels = np.array(sampled_labels)
+    scatter = plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=sampled_labels, cmap='coolwarm', alpha=0.6)
+    plt.colorbar(scatter)
+    plt.title("t-SNE Visualization of Pose Embeddings")
+    plt.xlabel("Dimension 1")
+    plt.ylabel("Dimension 2")
+    plt.tight_layout()
+    plt.savefig(f"{dataset_name}_tsne.png")
+    plt.close()
+
     # ROC Curve
     true_labels = np.array(true_labels)
     predicted_scores = np.array(predicted_scores)
@@ -223,8 +236,8 @@ def evaluate_model(image_pairs, dataset_path, batch_size=5000):
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    dataset_path = os.path.join(current_dir, "dataset_ETHZ", "seq2")
-    pairs_path = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_combos_seq2.txt")
+    dataset_path = os.path.join(current_dir, "entireid", "bounding_box_test")
+    pairs_path = os.path.join(current_dir, "evaluation_pairs", "evaluation_pairs_all_bounding_box_test.txt")
 
     image_pairs = load_image_pairs(pairs_path)
     if not image_pairs:

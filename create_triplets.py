@@ -11,7 +11,7 @@ def load_pose(file_path):
         return pickle.load(f)
 
 # Generate triplets: anchor, positive, negative
-def generate_triplets(dataset_path, output_file="triplets.pkl", num_negatives=5):
+def generate_triplets(dataset_path, output_file="triplets.pkl", num_negatives=10):
     triplets = []
     person_images = defaultdict(list)
 
@@ -58,7 +58,9 @@ def generate_triplets(dataset_path, output_file="triplets.pkl", num_negatives=5)
         pickle.dump(triplets, f)
 
     print(f"✅ Saved {len(triplets)} triplets to {output_file}")
-    return np.array(triplets)
+    result = f"Used {len(person_ids)} unique individuals for training."
+    print(result)
+    return result
 
 # Path to your dataset
 dataset_path = "entireid/bounding_box_test_pose"
