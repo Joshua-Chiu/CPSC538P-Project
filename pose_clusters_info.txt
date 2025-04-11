@@ -1,4 +1,0 @@
-Number of clusters: 2
-Points per cluster:
-  Cluster 0: 461 points
-  Cluster 1: 388 points
