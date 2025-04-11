@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
+from sklearn.preprocessing import StandardScaler
 
 # Define the Pose Embedding Network (same as before)
 class PoseEmbeddingNet(nn.Module):
@@ -37,12 +38,29 @@ class TripletLoss(nn.Module):
     def forward(self, anchor, positive, negative):
         return self.loss_fn(anchor, positive, negative)
 
-def train_model(margin=2.0):
+def train_model(margin=2.0, epochs=50):
     data = torch.load("triplet_tensors.pt")
     anchors = data['anchors']
     positives = data['positives']
     negatives = data['negatives']
     
+    # Flatten the tensors to make them 2D (batch_size, num_features)
+    anchors_flattened = anchors.view(anchors.size(0), -1)
+    positives_flattened = positives.view(positives.size(0), -1)
+    negatives_flattened = negatives.view(negatives.size(0), -1)
+
+    # Optionally, scale data (normalize embeddings before training)
+    scaler = StandardScaler()
+    anchors_normalized = torch.tensor(scaler.fit_transform(anchors_flattened.numpy()))
+    positives_normalized = torch.tensor(scaler.transform(positives_flattened.numpy()))
+    negatives_normalized = torch.tensor(scaler.transform(negatives_flattened.numpy()))
+
+    # Reshape back to original dimensions if necessary
+    anchors = anchors_normalized.view(anchors.size(0), anchors.size(1), -1)
+    positives = positives_normalized.view(positives.size(0), positives.size(1), -1)
+    negatives = negatives_normalized.view(negatives.size(0), negatives.size(1), -1)
+    
+    # Prepare the DataLoader
     dataset = TensorDataset(anchors, positives, negatives)
     loader = DataLoader(dataset, batch_size=64, shuffle=True)
     
@@ -56,7 +74,7 @@ def train_model(margin=2.0):
     best_loss = float('inf')
     epochs_without_improvement = 0
     
-    for epoch in range(20):
+    for epoch in range(epochs):
         total_loss = 0
         model.train()
         for anchor, positive, negative in loader:
@@ -82,7 +100,7 @@ def train_model(margin=2.0):
         if total_loss < best_loss:
             best_loss = total_loss
             epochs_without_improvement = 0
-            print(f"Epoch {epoch+1}/{20} - Loss: {total_loss/len(loader):.4f}")
+            print(f"Epoch {epoch+1}/{epochs} - Loss: {total_loss/len(loader):.4f}")
         else:
             epochs_without_improvement += 1
 
@@ -95,4 +113,4 @@ def train_model(margin=2.0):
     print("✅ Pose embedding model saved")
 
 if __name__ == "__main__":
-    train_model(margin=2.0)
+    train_model(margin=2.0, epochs=50)
