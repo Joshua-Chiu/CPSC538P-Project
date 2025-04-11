@@ -2,40 +2,28 @@ import os
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-import mediapipe as mp
-import cv2
+import pickle
 import numpy as np
 from tqdm import tqdm
 
-# ---------------------- Pose Dataset ---------------------- #
-class PoseDataset(Dataset):
-    def __init__(self, folder_path):
-        self.image_paths = [os.path.join(folder_path, f)
-                            for f in os.listdir(folder_path)
-                            if f.endswith((".png", ".jpg"))]
-        self.pose = mp.solutions.pose.Pose(min_detection_confidence=0.9, min_tracking_confidence=0.9)
+# ---------------------- Pose Dataset from Pickle ---------------------- #
+class PicklePoseDataset(Dataset):
+    def __init__(self, pkl_file_path):
+        with open(pkl_file_path, 'rb') as f:
+            self.data = pickle.load(f)
+        
+        self.samples = []
+        for entry in self.data:
+            landmarks = entry['landmarks']  # shape: [33, 3]
+            if landmarks and len(landmarks) == 33:
+                self.samples.append(np.array(landmarks, dtype=np.float32).flatten())  # shape: (99,)
 
     def __len__(self):
-        return len(self.image_paths)
-
-    def extract_pose(self, image_path):
-        image = cv2.imread(image_path)
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = self.pose.process(image_rgb)
-
-        if results.pose_landmarks:
-            landmarks = results.pose_landmarks.landmark
-            coords = np.array([[lm.x, lm.y, lm.z] for lm in landmarks], dtype=np.float32)
-            return coords.flatten()  # Flatten to (33*3,)
-        else:
-            return None
+        return len(self.samples)
 
     def __getitem__(self, idx):
-        while True:
-            coords = self.extract_pose(self.image_paths[idx])
-            if coords is not None:
-                return torch.tensor(coords)
-            idx = (idx + 1) % len(self)
+        return torch.tensor(self.samples[idx])
+
 
 # ---------------------- Autoencoder Model ---------------------- #
 class PoseAutoencoder(nn.Module):
@@ -57,9 +45,10 @@ class PoseAutoencoder(nn.Module):
         reconstructed = self.decoder(z)
         return reconstructed, z
 
+
 # ---------------------- Training ---------------------- #
-def train_autoencoder(dataset_path, model_save_path="pose_autoencoder.pth", epochs=50, batch_size=32):
-    dataset = PoseDataset(dataset_path)
+def train_autoencoder(pkl_path, model_save_path="pose_autoencoder.pth", epochs=50, batch_size=32):
+    dataset = PicklePoseDataset(pkl_path)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     model = PoseAutoencoder()
@@ -79,8 +68,9 @@ def train_autoencoder(dataset_path, model_save_path="pose_autoencoder.pth", epoc
         print(f"Epoch {epoch+1}, Loss: {total_loss / len(dataloader):.4f}")
 
     torch.save(model.state_dict(), model_save_path)
-    print("Model saved.")
+    print(f"✅ Model saved to {model_save_path}")
+
 
 # ---------------------- Main ---------------------- #
 if __name__ == "__main__":
-    train_autoencoder("entireid/bounding_box_test")  # <- change to your dataset path
+    train_autoencoder("pose_landmarks_unsupervised_dataset.pkl")  # <- your .pkl file
