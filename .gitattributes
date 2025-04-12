@@ -1,7 +1,5 @@
-
 *        text=auto
 *.md     text diff=markdown
-
 # Source files
 # ============
 *.pxd    text diff=python
@@ -11,9 +9,7 @@
 *.pyx    text diff=python
 *.pyz    text diff=python
 *.pyi    text diff=python
-
 # Binary files
-# ============
 *.db     binary
 *.p      binary
 *.pkl    binary
@@ -21,13 +17,12 @@
 *.pyc    binary export-ignore
 *.pyo    binary export-ignore
 *.pyd    binary
-
 *.jpg    binary -delta
 *.task   binary -delta
 # Jupyter notebook
 *.ipynb  text eol=lf
-
 # Note: .db, .p, and .pkl files are associated
 # with the python modules ``pickle``, ``dbm.*``,
 # ``shelve``, ``marshal``, ``anydbm``, & ``bsddb``
 # (among others).
+triplets.pkl filter=lfs diff=lfs merge=lfs -text

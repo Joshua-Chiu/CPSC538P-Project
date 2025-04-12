@@ -1,0 +1,16 @@
+Skipped files: 244745/301650
+Correctly identified positive pairs: 26150
+Correctly identified negative pairs: 6188
+Total true positives (ground truth positives): 28799
+Total true negatives (ground truth negatives): 28106
+AUC Score: 0.6692
+F1 Score: 0.6804
+Precision: 0.5440
+Recall: 0.9080
+MCC: 0.1769
+Average Precision (PR Curve AUC): 0.6673
+Root Mean Squared Error (RMSE): 0.5267
+Confusion Matrix:
+[[ 6188 21918]
+ [ 2649 26150]]
+Average Nearest Neighbor Score (Cosine Distance): 0.2856

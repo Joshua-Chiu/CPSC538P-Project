@@ -4,71 +4,95 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
 
-# Define the neural network model for feature extraction
+# Define the Pose Embedding Network (same as before)
 class PoseEmbeddingNet(nn.Module):
     def __init__(self, input_size=99, embedding_size=128):
-        super(PoseEmbeddingNet, self).__init__()
-        self.fc1 = nn.Linear(input_size, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, embedding_size)
-    
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Flatten(),  
+            nn.Linear(input_size, 512),  
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(512, 256),  
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Linear(128, embedding_size)  
+        )
+
     def forward(self, x):
-        x = x.view(x.size(0), -1)  # Flatten
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        return self.network(x)
 
-# Triplet loss function
-def triplet_loss(anchor, positive, negative, margin=1.0):
-    pos_dist = torch.norm(anchor - positive, p=2, dim=1)
-    neg_dist = torch.norm(anchor - negative, p=2, dim=1)
-    loss = torch.clamp(pos_dist - neg_dist + margin, min=0.0)
-    return loss.mean()
 
-# 🛑 Prevent training logic from running on import
-if __name__ == "__main__":
-    # Load the triplet tensors
-    triplet_tensors = torch.load("triplet_tensors.pt")
-    print(f"Loaded data type: {type(triplet_tensors)}")
-    print(f"Sample of loaded data (first element): {triplet_tensors[0] if isinstance(triplet_tensors, list) else triplet_tensors}")
+class TripletLoss(nn.Module):
+    def __init__(self, margin=2.0):
+        super().__init__()
+        self.margin = margin
+        self.loss_fn = nn.TripletMarginLoss(margin=margin, p=2)
 
-    if isinstance(triplet_tensors, dict):
-        anchors_tensor = triplet_tensors['anchors']
-        positives_tensor = triplet_tensors['positives']
-        negatives_tensor = triplet_tensors['negatives']
-    elif isinstance(triplet_tensors, list) and len(triplet_tensors) == 3:
-        anchors_tensor, positives_tensor, negatives_tensor = triplet_tensors
-    else:
-        raise ValueError("The loaded tensor data format is incorrect!")
+    def forward(self, anchor, positive, negative):
+        return self.loss_fn(anchor, positive, negative)
 
-    if not isinstance(anchors_tensor, torch.Tensor):
-        anchors_tensor = torch.tensor(anchors_tensor, dtype=torch.float32)
-    if not isinstance(positives_tensor, torch.Tensor):
-        positives_tensor = torch.tensor(positives_tensor, dtype=torch.float32)
-    if not isinstance(negatives_tensor, torch.Tensor):
-        negatives_tensor = torch.tensor(negatives_tensor, dtype=torch.float32)
-
-    dataset = TensorDataset(anchors_tensor, positives_tensor, negatives_tensor)
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-
-    model = PoseEmbeddingNet(input_size=99, embedding_size=128)
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
-
-    num_epochs = 10
-    for epoch in range(num_epochs):
-        model.train()
+def train_model(margin=2.0):
+    data = torch.load("triplet_tensors.pt")
+    anchors = data['anchors']
+    positives = data['positives']
+    negatives = data['negatives']
+    
+    dataset = TensorDataset(anchors, positives, negatives)
+    loader = DataLoader(dataset, batch_size=64, shuffle=True)
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = PoseEmbeddingNet().to(device)
+    loss_fn = TripletLoss(margin=margin)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=3, factor=0.5)
+    
+    patience = 5
+    best_loss = float('inf')
+    epochs_without_improvement = 0
+    
+    for epoch in range(20):
         total_loss = 0
-        for batch_idx, (anchor, positive, negative) in enumerate(dataloader):
+        model.train()
+        for anchor, positive, negative in loader:
+            anchor = anchor.to(device)
+            positive = positive.to(device)
+            negative = negative.to(device)
+
             optimizer.zero_grad()
-            anchor_embed = model(anchor)
-            positive_embed = model(positive)
-            negative_embed = model(negative)
-            loss = triplet_loss(anchor_embed, positive_embed, negative_embed)
-            total_loss += loss.item()
+
+            emb_anchor = model(anchor)
+            emb_positive = model(positive)
+            emb_negative = model(negative)
+
+            loss = loss_fn(emb_anchor, emb_positive, emb_negative)
             loss.backward()
             optimizer.step()
-        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(dataloader)}")
 
+            total_loss += loss.item()
+
+        # Update scheduler
+        scheduler.step(total_loss)
+
+        if total_loss < best_loss:
+            best_loss = total_loss
+            epochs_without_improvement = 0
+            print(f"Epoch {epoch+1}/{20} - Loss: {total_loss/len(loader):.4f}")
+        else:
+            epochs_without_improvement += 1
+
+        if epochs_without_improvement >= patience:
+            print(f"Early stopping after {epoch+1} epochs")
+            break
+    
+    # Save the trained model
     torch.save(model.state_dict(), "pose_embedding_model.pth")
-    print("✅ Model training completed and saved as 'pose_embedding_model.pth'")
+    print("✅ Pose embedding model saved")
+
+if __name__ == "__main__":
+    train_model(margin=2.0)
